@@ -114,7 +114,7 @@ That's it. No database required — HITS uses file-based storage at `~/.hits/dat
 
 ### MCP Tools for AI Assistants
 
-HITS includes an MCP server so your AI can read and write handover data directly:
+HITS includes an MCP server so your AI can read and write handover data directly. No need to clone the repo — it works right out of the npm package.
 
 #### Register with OpenCode (`~/.config/opencode/opencode.json`)
 
@@ -123,8 +123,7 @@ HITS includes an MCP server so your AI can read and write handover data directly
   "mcp": {
     "hits": {
       "type": "local",
-      "command": ["python", "-m", "hits_core.mcp.server"],
-      "cwd": "/path/to/hits"
+      "command": ["npx", "hits-mcp"]
     }
   }
 }
@@ -133,10 +132,23 @@ HITS includes an MCP server so your AI can read and write handover data directly
 #### Register with Claude Code
 
 ```bash
-claude mcp add hits \
-  -e HITS_DATA_PATH="$HOME/.hits/data" \
-  -- python -m hits_core.mcp.server
+claude mcp add hits -- npx hits-mcp
 ```
+
+#### Register with Any MCP Client
+
+```json
+{
+  "mcpServers": {
+    "hits": {
+      "command": "npx",
+      "args": ["hits-mcp"]
+    }
+  }
+}
+```
+
+> **How it works:** `npx hits-mcp` auto-detects Python, creates a venv inside the npm package, installs dependencies, and spawns the MCP server over stdio — all automatically on first run.
 
 #### 5 MCP Tools
 

@@ -12,7 +12,8 @@
   "author": "HITS Team",
   "type": "module",
   "bin": {
-    "hits": "bin/hits.js"
+    "hits": "bin/hits.js",
+    "hits-mcp": "bin/hits-mcp.js"
   },
   "scripts": {
     "start": "node bin/hits.js",
@@ -51,7 +52,7 @@
   "devDependencies": {},
   "repository": {
     "type": "git",
-    "url": "git+https://lhjnano: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@github.com/lhjnano/hits.git"
+    "url": "git+https://github.com/lhjnano/hits.git"
   },
   "bugs": {
     "url": "https://github.com/lhjnano/hits/issues"
