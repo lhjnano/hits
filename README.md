@@ -1,85 +1,85 @@
 # HITS - Hybrid Intel Trace System
 
-> AI를 가장 적게 쓰면서, 전임자의 뇌를 가장 완벽하게 복제하는 시스템
+> Replicate your predecessor's brain as perfectly as possible, using the least amount of AI.
 
-## 개요
+## Overview
 
-HITS는 기업의 핵심 지식과 의사결정 맥락을 보존하기 위한 하이브리드 지식 관리 시스템입니다. AI 도구 간(Claude, OpenCode, Cursor 등) 세션 전환 시 프로젝트별 인수인계를 자동화합니다.
+HITS is a hybrid knowledge management system designed to preserve organizational core knowledge and decision-making context. It automates project-specific handover when switching between AI tool sessions (Claude, OpenCode, Cursor, etc.).
 
-### 핵심 가치
+### Core Values
 
-- **토큰 최적화**: AI 비용 절감을 위한 시멘틱 압축과 온디맨드 분석
-- **맥락 보존**: Why-How-What 계층 구조로 의사결정 과정 저장
-- **실패 경험**: Negative Path로 실패한 접근법도 함께 기록
-- **보안 강화**: Argon2id 해싱, JWT HttpOnly 쿠키, CSP, Rate Limiting
-- **AI 세션 인수인계**: 토큰 한계로 AI 교체 시 프로젝트별 컨텍스트 자동 전달
-- **중앙 집중 저장**: `~/.hits/data/`에 모든 AI 도구의 작업 기록이 통합 저장
-- **프로젝트별 격리**: 프로젝트 경로 기반으로 완전히 독립된 컨텍스트 관리
+- **Token Optimization**: Semantic compression and on-demand analysis to reduce AI costs
+- **Context Preservation**: Store decision-making processes in a Why-How-What hierarchy
+- **Failure Experience**: Record failed approaches alongside successes as Negative Paths
+- **Security Hardened**: Argon2id hashing, JWT HttpOnly cookies, CSP, Rate Limiting
+- **AI Session Handover**: Automatically transfer project context when AI sessions rotate due to token limits
+- **Centralized Storage**: All AI tool work logs are consolidated at `~/.hits/data/`
+- **Project Isolation**: Completely independent context management based on project path
 
-## 기술 스택
+## Tech Stack
 
-| 영역 | 기술 |
-|------|------|
-| **백엔드** | Python 3.10+, FastAPI, Pydantic v2 |
-| **프론트엔드** | Svelte 5, Vite, TypeScript |
-| **인증** | Argon2id (비밀번호), JWT HS256 (HttpOnly 쿠키) |
-| **저장소** | 파일 기반 (`~/.hits/data/`), Redis (선택) |
-| **보안** | CSP, CORS, Rate Limiting, Secure Headers |
+| Area | Technology |
+|------|-----------|
+| **Backend** | Python 3.10+, FastAPI, Pydantic v2 |
+| **Frontend** | Svelte 5, Vite, TypeScript |
+| **Authentication** | Argon2id (passwords), JWT HS256 (HttpOnly cookies) |
+| **Storage** | File-based (`~/.hits/data/`), Redis (optional) |
+| **Security** | CSP, CORS, Rate Limiting, Secure Headers |
 
-## 설치
+## Installation
 
-### 요구사항
+### Requirements
 
-- Python 3.10 이상
-- Node.js 18+ (프론트엔드 빌드용)
-- Redis (선택사항, 없으면 파일 저장소 사용)
+- Python 3.10 or later
+- Node.js 18+ (for frontend build)
+- Redis (optional — falls back to file storage)
 
-### 빠른 시작
+### Quick Start
 
 ```bash
 cd hits
-./run.sh          # 자동 설치 + 서버 시작
+./run.sh          # Auto-install + start server
 ```
 
-#### 개발 모드
+#### Development Mode
 
 ```bash
-./run.sh --dev    # Vite HMR + FastAPI 백엔드
+./run.sh --dev    # Vite HMR + FastAPI backend
 ```
 
-#### 수동 설치
+#### Manual Installation
 
 ```bash
-# Python 환경
+# Python environment
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 
-# 프론트엔드 빌드
+# Frontend build
 cd hits_web
 npm install
 npm run build
 cd ..
 
-# 서버 실행
+# Start server
 python -m hits_core.main --port 8765
 ```
 
-## 보안
+## Security
 
-### 인증 시스템
+### Authentication System
 
-| 기능 | 구현 |
-|------|------|
-| **비밀번호 해싱** | Argon2id (memory=64MB, iterations=3, parallelism=1) |
-| **비밀번호 최소 길이** | 8자 |
-| **JWT 토큰** | HttpOnly + Secure + SameSite=Lax 쿠키 |
-| **액세스 토큰** | 15분 만료 |
-| **리프레시 토큰** | 7일 만료, `/api/auth/refresh` 경로에서만 전송 |
-| **첫 사용자** | 자동으로 admin 역할 부여 |
-| **이후 사용자** | admin만 생성 가능 |
+| Feature | Implementation |
+|---------|---------------|
+| **Password Hashing** | Argon2id (memory=64MB, iterations=3, parallelism=1) |
+| **Minimum Password Length** | 8 characters |
+| **JWT Tokens** | HttpOnly + Secure + SameSite=Lax cookies |
+| **Access Token** | 15-minute expiry |
+| **Refresh Token** | 7-day expiry, sent only to `/api/auth/refresh` |
+| **First User** | Automatically assigned admin role |
+| **Subsequent Users** | Can only be created by admin |
 
-### 보안 헤더
+### Security Headers
 
 ```
 Content-Security-Policy: default-src 'self'; script-src 'self'; ...
@@ -92,65 +92,65 @@ Permissions-Policy: camera=(), microphone=(), geolocation=()
 
 ### Rate Limiting
 
-- 로그인 엔드포인트: 10회/분 (IP 기준)
-- 429 Too Many Requests 응답으로 제한
+- Login endpoint: 10 requests/minute (per IP)
+- Responds with 429 Too Many Requests when exceeded
 
-### 데이터 보호
+### Data Protection
 
-| 항목 | 권한 | 설명 |
-|------|------|------|
-| `~/.hits/.auth/users.json` | 600 | 사용자 데이터 (소유자만) |
-| `~/.hits/.pepper` | 600 | HMAC 페퍼 (소유자만) |
-| `~/.hits/.jwt_secret` | 600 | JWT 서명 키 (소유자만) |
-| `~/.hits/.auth/` | 700 | 인증 디렉토리 (소유자만) |
+| Item | Permissions | Description |
+|------|-------------|-------------|
+| `~/.hits/.auth/users.json` | 600 | User data (owner only) |
+| `~/.hits/.pepper` | 600 | HMAC pepper (owner only) |
+| `~/.hits/.jwt_secret` | 600 | JWT signing key (owner only) |
+| `~/.hits/.auth/` | 700 | Auth directory (owner only) |
 
-## 웹 UI
+## Web UI
 
-### 화면 구성
+### Layout
 
 ```
 ┌─────────────┬───────────────────────────────────┐
-│  사이드바    │  헤더 (탭 + 사용자 메뉴)            │
+│  Sidebar    │  Header (tabs + user menu)         │
 │             ├───────────────────────────────────┤
-│  📂 프로젝트 │                                   │
-│  ────────── │  메인 컨텐츠 영역                   │
+│  📂 Projects│                                   │
+│  ────────── │  Main content area                 │
 │  /project-a │                                   │
-│  /project-b │  📋 지식 트리 | 📝 타임라인 | 🔄 인수인계 │
+│  /project-b │  📋 Knowledge | 📝 Timeline | 🔄 Handover │
 │  /project-c │                                   │
 │             │                                   │
 └─────────────┴───────────────────────────────────┘
 ```
 
-### 주요 기능
+### Features
 
-- **지식 트리**: 카테고리별 Why-How-What 노드 관리 (CRUD)
-- **타임라인**: 프로젝트별 작업 기록, 날짜별 그룹핑, 검색
-- **인수인계**: 프로젝트 선택 시 자동 생성된 인수인계 요약
-- **프로젝트 전환**: 사이드바에서 프로젝트 선택으로 즉시 전환
-- **사용자 관리**: 비밀번호 변경, 로그아웃
+- **Knowledge Tree**: Manage Why-How-What nodes by category (full CRUD)
+- **Timeline**: Project work logs, grouped by date, with search
+- **Handover**: Auto-generated handover summary when a project is selected
+- **Project Switching**: Instant context switch via sidebar
+- **User Management**: Password change, logout
 
-## AI 세션 인수인계
+## AI Session Handover
 
-### 작동 방식
+### How It Works
 
 ```
-[OpenCode 세션]                    [Claude 세션]
-      │                                  │
-  작업 수행                           세션 시작
-      │                                  │
-  작업 기록 ──────────────────────→ 인수인계 조회
-  POST /api/work-log               GET /api/handover
-  project_path: /my-project        project_path: /my-project
-      │                                  │
-      └──→ ~/.hits/data/ ←──┘            │
-           (중앙 집중)              이전 컨텍스트 파악
-                                         │
-                                    작업 이어서 수행
+[OpenCode Session]                  [Claude Session]
+       │                                  │
+   Perform work                        Session start
+       │                                  │
+   Record work ──────────────────────→ Query handover
+   POST /api/work-log               GET /api/handover
+   project_path: /my-project        project_path: /my-project
+       │                                  │
+       └──→ ~/.hits/data/ ←──┘            │
+            (centralized)            Understand previous context
+                                          │
+                                     Continue work seamlessly
 ```
 
-### MCP 설정
+### MCP Configuration
 
-OpenCode 또는 Claude의 MCP 설정에 추가:
+Add to your OpenCode or Claude MCP settings:
 
 ```json
 {
@@ -162,76 +162,76 @@ OpenCode 또는 Claude의 MCP 설정에 추가:
 }
 ```
 
-MCP 툴:
-- `hits_record_work`: 작업 기록
-- `hits_get_handover`: 인수인계 요약
-- `hits_search_works`: 작업 검색
-- `hits_list_projects`: 프로젝트 목록
-- `hits_get_recent`: 최근 작업
+MCP Tools:
+- `hits_record_work`: Record work entry
+- `hits_get_handover`: Get handover summary
+- `hits_search_works`: Search past work
+- `hits_list_projects`: List projects
+- `hits_get_recent`: Get recent work
 
-## API 엔드포인트
+## API Endpoints
 
-### 인증
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/auth/status` | 인증 상태 확인 |
-| POST | `/api/auth/register` | 사용자 등록 |
-| POST | `/api/auth/login` | 로그인 (HttpOnly 쿠키 설정) |
-| POST | `/api/auth/logout` | 로그아웃 |
-| POST | `/api/auth/refresh` | 액세스 토큰 갱신 |
-| GET | `/api/auth/me` | 현재 사용자 정보 |
-| PUT | `/api/auth/password` | 비밀번호 변경 |
-
-### 작업 기록
+### Authentication
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/api/work-log` | 작업 기록 생성 |
-| GET | `/api/work-logs` | 작업 목록 (`project_path` 필터) |
-| GET | `/api/work-logs/search?q=...` | 작업 검색 |
-| GET | `/api/work-log/{id}` | 단건 조회 |
-| PUT | `/api/work-log/{id}` | 수정 |
-| DELETE | `/api/work-log/{id}` | 삭제 |
+| GET | `/api/auth/status` | Check auth status |
+| POST | `/api/auth/register` | Register user |
+| POST | `/api/auth/login` | Login (sets HttpOnly cookies) |
+| POST | `/api/auth/logout` | Logout |
+| POST | `/api/auth/refresh` | Refresh access token |
+| GET | `/api/auth/me` | Get current user info |
+| PUT | `/api/auth/password` | Change password |
 
-### 인수인계
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/handover?project_path=...` | 프로젝트별 인수인계 요약 |
-| GET | `/api/handover/projects` | 프로젝트 목록 |
-| GET | `/api/handover/project-stats?project_path=...` | 프로젝트 통계 |
-
-### 지식 카테고리
+### Work Logs
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/knowledge/categories` | 카테고리 목록 |
-| POST | `/api/knowledge/category` | 카테고리 생성 |
-| PUT | `/api/knowledge/category/{name}` | 카테고리 수정 |
-| DELETE | `/api/knowledge/category/{name}` | 카테고리 삭제 |
-| POST | `/api/knowledge/category/{name}/nodes` | 노드 추가 |
-| PUT | `/api/knowledge/category/{name}/nodes/{idx}` | 노드 수정 |
-| DELETE | `/api/knowledge/category/{name}/nodes/{idx}` | 노드 삭제 |
+| POST | `/api/work-log` | Create work log |
+| GET | `/api/work-logs` | List work logs (supports `project_path` filter) |
+| GET | `/api/work-logs/search?q=...` | Search work logs |
+| GET | `/api/work-log/{id}` | Get single entry |
+| PUT | `/api/work-log/{id}` | Update entry |
+| DELETE | `/api/work-log/{id}` | Delete entry |
 
-### performed_by 규칙
+### Handover
 
-| AI 도구 | 값 |
-|---------|-----|
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/handover?project_path=...` | Get project handover summary |
+| GET | `/api/handover/projects` | List projects |
+| GET | `/api/handover/project-stats?project_path=...` | Get project stats |
+
+### Knowledge Categories
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/knowledge/categories` | List categories |
+| POST | `/api/knowledge/category` | Create category |
+| PUT | `/api/knowledge/category/{name}` | Update category |
+| DELETE | `/api/knowledge/category/{name}` | Delete category |
+| POST | `/api/knowledge/category/{name}/nodes` | Add node |
+| PUT | `/api/knowledge/category/{name}/nodes/{idx}` | Update node |
+| DELETE | `/api/knowledge/category/{name}/nodes/{idx}` | Delete node |
+
+### performed_by Values
+
+| AI Tool | Value |
+|---------|-------|
 | OpenCode | `opencode` |
 | Claude Code | `claude` |
 | Cursor | `cursor` |
-| 사용자 직접 | `manual` |
+| Manual | `manual` |
 
-## 아키텍처
+## Architecture
 
 ```
 ┌──────────────────────────────────────────────────────────┐
 │                   hits_web (Svelte 5 + Vite)              │
-│              Material Dark 테마 · TypeScript               │
+│              Material Dark theme · TypeScript              │
 │  ┌──────────┬──────────┬──────────────────────────┐       │
 │  │ Sidebar  │ Knowledge│ HandoverPanel            │       │
-│  │ Projects │ Tree     │ 인수인계 요약 뷰          │       │
+│  │ Projects │ Tree     │ Handover summary view    │       │
 │  │ Filter   │ Timeline │                          │       │
 │  └──────────┴──────────┴──────────────────────────┘       │
 │         ↕ API Client (fetch + HttpOnly cookies)           │
@@ -257,57 +257,57 @@ MCP 툴:
 └──────────────────────────────────────────────────────────┘
 ```
 
-## 지식 트리 구조
+## Knowledge Tree Structure
 
-### Why-How-What 계층
+### Why-How-What Hierarchy
 
 ```
-├── WHY (의도/목적)
-│   ├── "왜 이 시스템을 만들었나?"
-│   └── "비즈니스 목표가 무엇인가?"
+├── WHY (Intent/Purpose)
+│   ├── "Why was this system built?"
+│   └── "What is the business goal?"
 │
-├── HOW (논리/방법)
-│   ├── "어떻게 구현했나?"
-│   └── "어떤 의사결정을 내렸나?"
+├── HOW (Logic/Method)
+│   ├── "How was it implemented?"
+│   └── "What decisions were made?"
 │
-└── WHAT (실행/작업)
-    ├── "구체적으로 무엇을 하나?"
-    └── "실행 가능한 액션"
+└── WHAT (Execution/Tasks)
+    ├── "What specifically does it do?"
+    └── "Actionable tasks"
 ```
 
-## 개발
+## Development
 
-### 개발 모드
+### Development Mode
 
 ```bash
 ./run.sh --dev    # Vite HMR + FastAPI
 ```
 
-### 테스트
+### Testing
 
 ```bash
-./run.sh --test   # pytest 실행
+./run.sh --test   # Run pytest
 ```
 
-### 프론트엔드 개발
+### Frontend Development
 
 ```bash
 cd hits_web
-npm install        # 의존성 설치
-npm run dev        # Vite 개발 서버 (http://localhost:5173)
-npm run build      # 프로덕션 빌드
+npm install        # Install dependencies
+npm run dev        # Vite dev server (http://localhost:5173)
+npm run build      # Production build
 ```
 
-## 라이선스
+## License
 
-| 패키지 | 라이선스 | 상업적 사용 |
-|--------|---------|-------------|
-| `hits_core` | Apache 2.0 | ✅ 자유로움 |
-| `hits_web` | Apache 2.0 | ✅ 자유로움 |
+| Package | License | Commercial Use |
+|---------|---------|---------------|
+| `hits_core` | Apache 2.0 | ✅ Free |
+| `hits_web` | Apache 2.0 | ✅ Free |
 
-## 문제 해결
+## Troubleshooting
 
-### Node.js가 없습니다
+### Node.js Not Found
 
 ```bash
 # Ubuntu/Debian
@@ -315,22 +315,22 @@ curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
 sudo apt install -y nodejs
 ```
 
-### Redis 연결 실패
+### Redis Connection Failed
 
-Redis 없이도 HITS는 정상 작동합니다. 파일 기반 저장소를 자동으로 사용합니다.
+HITS works fine without Redis. It automatically falls back to file-based storage.
 
-### 데이터가 어디에 저장되나요?
+### Where Is Data Stored?
 
 ```
 ~/.hits/
-├── data/                ← 모든 데이터의 기본 위치
-│   ├── work_logs/       ← AI 세션 작업 기록
-│   ├── trees/           ← 지식 트리
-│   └── workflows/       ← 워크플로우
-├── .auth/               ← 인증 데이터
-│   └── users.json       ← 사용자 정보 (권한 600)
-├── .pepper              ← HMAC 페퍼 (권한 600)
-└── .jwt_secret          ← JWT 서명 키 (권한 600)
+├── data/                ← Default location for all data
+│   ├── work_logs/       ← AI session work logs
+│   ├── trees/           ← Knowledge trees
+│   └── workflows/       ← Workflows
+├── .auth/               ← Authentication data
+│   └── users.json       ← User info (permissions 600)
+├── .pepper              ← HMAC pepper (permissions 600)
+└── .jwt_secret          ← JWT signing key (permissions 600)
 
-HITS_DATA_PATH 환경변수로 경로 변경 가능
+Override with HITS_DATA_PATH environment variable
 ```

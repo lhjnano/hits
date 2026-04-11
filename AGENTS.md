@@ -19,137 +19,137 @@ If pre-flight checks fail, fix the errors before proceeding.
 
 ## AI Session Handover Protocol
 
-토큰 한계 등으로 AI 세션이 교체될 때, 프로젝트별 인수인계가 자동으로 동작합니다.
-모든 데이터는 `~/.hits/data/`에 중앙 집중 저장되며, 프로젝트 경로로 격리됩니다.
+When an AI session is replaced due to token limits, project-specific handover activates automatically.
+All data is centrally stored at `~/.hits/data/` and isolated by project path.
 
-### 세션 시작 시
+### On Session Start
 
 ```bash
-# HTTP API (HITS 서버 실행 중일 때)
+# HTTP API (when HITS server is running)
 curl -s "http://localhost:8765/api/handover?project_path=$(pwd)" | python -m json.tool
 
-# 또는 MCP 툴 (HITS MCP가 설정된 경우):
-# hits_get_handover → 이전 세션의 작업 내용, 결정 사항, 미완료 항목 조회
+# Or via MCP tool (when HITS MCP is configured):
+# hits_get_handover → Retrieve previous session's work, decisions, and unfinished items
 ```
 
-### 세션 종료 시 (반드시 기록)
+### On Session End (MUST record)
 
 ```bash
 curl -X POST http://localhost:8765/api/work-log \
   -H "Content-Type: application/json" \
   -d '{
-    "performed_by": "<AI_도구_이름>",
-    "request_text": "<작업 요약>",
-    "context": "<상세 내용, 결정 사항>",
+    "performed_by": "<AI_tool_name>",
+    "request_text": "<work summary>",
+    "context": "<details, decisions>",
     "source": "ai_session",
-    "tags": ["<태그>"],
-    "project_path": "<프로젝트_절대경로>",
+    "tags": ["<tag>"],
+    "project_path": "<project_absolute_path>",
     "result_data": {
-      "files_modified": ["<수정한_파일>"],
-      "commands_run": ["<실행한_명령>"]
+      "files_modified": ["<modified_file>"],
+      "commands_run": ["<executed_command>"]
     }
   }'
 ```
 
-### performed_by 규칙
+### performed_by Values
 
-| AI 도구 | performed_by 값 |
-|---------|----------------|
+| AI Tool | performed_by Value |
+|---------|-------------------|
 | OpenCode | `"opencode"` |
 | Claude Code | `"claude"` |
 | Cursor | `"cursor"` |
 | GitHub Copilot | `"copilot"` |
-| 사용자 직접 | `"manual"` 또는 사용자명 |
+| Manual | `"manual"` or username |
 
-### project_path 규칙
+### project_path Rules
 
-- **항상 절대경로 사용**: `"/home/user/source/my-project"` (O), `"./my-project"` (X)
-- **자동 감지**: CWD에서 `.git` 디렉토리가 있는 루트를 프로젝트 경로로 사용
-- **프로젝트별 격리**: 서로 다른 `project_path`는 완전히 독립된 인수인계 컨텍스트를 가짐
+- **Always use absolute paths**: `"/home/user/source/my-project"` (O), `"./my-project"` (X)
+- **Auto-detection**: Use the directory containing `.git` from CWD as the project path
+- **Project isolation**: Different `project_path` values have completely independent handover contexts
 
-### MCP 툴 사용 (권장)
+### MCP Tools (Recommended)
 
-HITS MCP 서버가 설정된 경우, HTTP API 대신 직접 툴 호출:
+When the HITS MCP server is configured, use direct tool calls instead of HTTP API:
 
 ```
-hits_record_work    → 작업 기록 (project_path 자동 감지)
-hits_get_handover   → 인수인계 요약 조회
-hits_search_works   → 이전 작업 검색
-hits_list_projects  → 프로젝트 목록
-hits_get_recent     → 최근 작업 조회
+hits_record_work    → Record work entry (auto-detects project_path)
+hits_get_handover   → Query handover summary
+hits_search_works   → Search past work
+hits_list_projects  → List projects
+hits_get_recent     → Get recent work
 ```
 
-### 기록 시점
+### When to Record
 
-- 사용자와 긴 작업 세션 종료 시
-- 주요 기능 구현 완료 시
-- 버그 수정 완료 시
-- 사용자가 명시적으로 종료 요청 시
-- **토큰 한계 경고 수신 시** (즉시 기록!)
+- At the end of a long work session with the user
+- After completing a major feature implementation
+- After fixing a bug
+- When the user explicitly requests to end the session
+- **On token limit warning** (record immediately!)
 
-### 데이터 저장소
+### Data Store
 
-| 위치 | 설명 |
-|------|------|
-| `~/.hits/data/work_logs/` | 작업 기록 (JSON) |
-| `~/.hits/data/trees/` | 지식 트리 |
-| `~/.hits/data/workflows/` | 워크플로우 |
-| `~/.hits/.auth/` | 인증 데이터 (권한 600/700) |
-| `HITS_DATA_PATH` 환경변수 | 저장소 경로 오버라이드 |
+| Location | Description |
+|----------|-------------|
+| `~/.hits/data/work_logs/` | Work logs (JSON) |
+| `~/.hits/data/trees/` | Knowledge trees |
+| `~/.hits/data/workflows/` | Workflows |
+| `~/.hits/.auth/` | Auth data (permissions 600/700) |
+| `HITS_DATA_PATH` env var | Override storage path |
 
 ## API Endpoints
 
-### 인증
+### Authentication
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/auth/status` | 인증 상태 (초기화 여부, 로그인 여부) |
-| POST | `/api/auth/register` | 사용자 등록 (첫 사용자 = admin) |
-| POST | `/api/auth/login` | 로그인 (HttpOnly 쿠키 설정) |
-| POST | `/api/auth/logout` | 로그아웃 |
-| POST | `/api/auth/refresh` | 액세스 토큰 갱신 |
-| GET | `/api/auth/me` | 현재 사용자 정보 |
-| PUT | `/api/auth/password` | 비밀번호 변경 |
+| GET | `/api/auth/status` | Auth status (initialized, logged in) |
+| POST | `/api/auth/register` | Register user (first user = admin) |
+| POST | `/api/auth/login` | Login (sets HttpOnly cookies) |
+| POST | `/api/auth/logout` | Logout |
+| POST | `/api/auth/refresh` | Refresh access token |
+| GET | `/api/auth/me` | Current user info |
+| PUT | `/api/auth/password` | Change password |
 
-### 작업 기록
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/health` | 서버 상태 확인 |
-| POST | `/api/work-log` | 작업 기록 생성 |
-| GET | `/api/work-logs` | 작업 기록 목록 (`project_path` 필터 지원) |
-| GET | `/api/work-logs/search?q=키워드` | 작업 검색 (`project_path` 필터 지원) |
-| GET | `/api/work-log/{id}` | 단건 조회 |
-| PUT | `/api/work-log/{id}` | 수정 |
-| DELETE | `/api/work-log/{id}` | 삭제 |
-
-### 인수인계
+### Work Logs
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/handover?project_path=...` | 프로젝트별 인수인계 요약 |
-| GET | `/api/handover/projects` | 프로젝트 목록 |
-| GET | `/api/handover/project-stats?project_path=...` | 프로젝트 통계 |
+| GET | `/api/health` | Server health check |
+| POST | `/api/work-log` | Create work log |
+| GET | `/api/work-logs` | List work logs (supports `project_path` filter) |
+| GET | `/api/work-logs/search?q=keyword` | Search work logs (supports `project_path` filter) |
+| GET | `/api/work-log/{id}` | Get single entry |
+| PUT | `/api/work-log/{id}` | Update entry |
+| DELETE | `/api/work-log/{id}` | Delete entry |
 
-### 지식 카테고리
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/knowledge/categories` | 카테고리 목록 |
-| POST | `/api/knowledge/category` | 카테고리 생성 |
-| PUT | `/api/knowledge/category/{name}` | 카테고리 수정 |
-| DELETE | `/api/knowledge/category/{name}` | 카테고리 삭제 |
-| POST | `/api/knowledge/category/{name}/nodes` | 노드 추가 |
-| PUT | `/api/knowledge/category/{name}/nodes/{idx}` | 노드 수정 |
-| DELETE | `/api/knowledge/category/{name}/nodes/{idx}` | 노드 삭제 |
-
-### 지식 트리 (노드 기반)
+### Handover
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/api/node` | 지식 노드 생성 |
-| PUT | `/api/node/{id}` | 지식 노드 수정 |
-| DELETE | `/api/node/{id}` | 지식 노드 삭제 |
+| GET | `/api/handover?project_path=...` | Project handover summary |
+| GET | `/api/handover/projects` | List projects |
+| GET | `/api/handover/project-stats?project_path=...` | Project stats |
+
+### Knowledge Categories
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/knowledge/categories` | List categories |
+| POST | `/api/knowledge/category` | Create category |
+| PUT | `/api/knowledge/category/{name}` | Update category |
+| DELETE | `/api/knowledge/category/{name}` | Delete category |
+| POST | `/api/knowledge/category/{name}/nodes` | Add node |
+| PUT | `/api/knowledge/category/{name}/nodes/{idx}` | Update node |
+| DELETE | `/api/knowledge/category/{name}/nodes/{idx}` | Delete node |
+
+### Knowledge Tree (Node-based)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/node` | Create knowledge node |
+| PUT | `/api/node/{id}` | Update knowledge node |
+| DELETE | `/api/node/{id}` | Delete knowledge node |
 
 ## Development Workflow
 
