@@ -1,0 +1,310 @@
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import { api } from '../lib/api';
+  import { categoriesStore } from '../lib/stores';
+
+  let categories = $state<{ name: string; icon: string; items: any[] }[]>([]);
+  let expandedCategories = $state<Set<string>>(new Set());
+  let loading = $state(true);
+  let showNodeModal = $state(false);
+  let showCategoryModal = $state(false);
+  let editingCategory: string | null = $state(null);
+  let editingNodeIndex: number | null = $state(null);
+
+  // Form state
+  let formCategoryName = $state('');
+  let formCategoryIcon = $state('📁');
+  let formNodeName = $state('');
+  let formNodeLayer = $state('what');
+  let formNodeType = $state('url');
+  let formNodeAction = $state('');
+  let formNodeNegative = $state(false);
+  let formError = $state('');
+  let formSubmitting = $state(false);
+
+  const LAYER_LABELS: Record<string, string> = {
+    why: 'WHY (의도)',
+    how: 'HOW (방법)',
+    what: 'WHAT (실행)',
+  };
+
+  onMount(async () => {
+    await loadCategories();
+  });
+
+  async function loadCategories() {
+    loading = true;
+    const res = await api.knowledge.list();
+    if (res.success && res.data) {
+      categories = res.data;
+      categoriesStore.value = res.data;
+      // Expand all by default
+      expandedCategories = new Set(categories.map(c => c.name));
+    }
+    loading = false;
+  }
+
+  function toggleCategory(name: string) {
+    const next = new Set(expandedCategories);
+    if (next.has(name)) next.delete(name);
+    else next.add(name);
+    expandedCategories = next;
+  }
+
+  function openAddCategory() {
+    formCategoryName = '';
+    formCategoryIcon = '📁';
+    formError = '';
+    showCategoryModal = true;
+  }
+
+  function openEditCategory(cat: { name: string; icon: string }) {
+    editingCategory = cat.name;
+    formCategoryName = cat.name;
+    formCategoryIcon = cat.icon;
+    formError = '';
+    showCategoryModal = true;
+  }
+
+  function openAddNode(categoryName: string) {
+    editingCategory = categoryName;
+    editingNodeIndex = null;
+    formNodeName = '';
+    formNodeLayer = 'what';
+    formNodeType = 'url';
+    formNodeAction = '';
+    formNodeNegative = false;
+    formError = '';
+    showNodeModal = true;
+  }
+
+  function openEditNode(categoryName: string, index: number, node: any) {
+    editingCategory = categoryName;
+    editingNodeIndex = index;
+    formNodeName = node.name;
+    formNodeLayer = node.layer;
+    formNodeType = node.type;
+    formNodeAction = node.action;
+    formNodeNegative = node.negative_path || false;
+    formError = '';
+    showNodeModal = true;
+  }
+
+  async function saveCategory() {
+    formError = '';
+    formSubmitting = true;
+
+    let res;
+    if (editingCategory) {
+      res = await api.knowledge.updateCategory(editingCategory, formCategoryName, formCategoryIcon);
+    } else {
+      res = await api.knowledge.createCategory(formCategoryName, formCategoryIcon);
+    }
+
+    formSubmitting = false;
+    if (res.success) {
+      showCategoryModal = false;
+      editingCategory = null;
+      await loadCategories();
+    } else {
+      formError = res.error || '저장 실패';
+    }
+  }
+
+  async function saveNode() {
+    formError = '';
+    if (!editingCategory) return;
+    formSubmitting = true;
+
+    let res;
+    if (editingNodeIndex !== null) {
+      res = await api.knowledge.updateNode(editingCategory, editingNodeIndex, {
+        name: formNodeName,
+        layer: formNodeLayer,
+        type: formNodeType,
+        action: formNodeAction,
+        negative_path: formNodeNegative,
+      });
+    } else {
+      res = await api.knowledge.addNode(editingCategory, {
+        name: formNodeName,
+        layer: formNodeLayer,
+        type: formNodeType,
+        action: formNodeAction,
+        negative_path: formNodeNegative,
+      });
+    }
+
+    formSubmitting = false;
+    if (res.success) {
+      showNodeModal = false;
+      editingCategory = null;
+      editingNodeIndex = null;
+      await loadCategories();
+    } else {
+      formError = res.error || '저장 실패';
+    }
+  }
+
+  async function deleteCategory(name: string) {
+    if (!confirm(`"${name}" 카테고리와 모든 노드를 삭제하시겠습니까?`)) return;
+    await api.knowledge.deleteCategory(name);
+    await loadCategories();
+  }
+
+  async function deleteNode(category: string, index: number) {
+    if (!confirm('이 노드를 삭제하시겠습니까?')) return;
+    await api.knowledge.deleteNode(category, index);
+    await loadCategories();
+  }
+</script>
+
+<div>
+  <div class="flex items-center" style="margin-bottom:16px;">
+    <h2 style="font-size:16px; flex:1;">📋 지식 트리</h2>
+    <button class="btn btn-primary btn-sm" onclick={openAddCategory}>
+      + 카테고리
+    </button>
+  </div>
+
+  {#if loading}
+    <div class="loading"><div class="spinner"></div></div>
+  {:else if categories.length === 0}
+    <div class="empty-state">
+      <div class="icon">📋</div>
+      <div class="message">카테고리가 없습니다</div>
+      <button class="btn btn-primary btn-sm" onclick={openAddCategory}>카테고리 만들기</button>
+    </div>
+  {:else}
+    {#each categories as cat}
+      <div style="margin-bottom:8px;">
+        <div class="category-header" onclick={() => toggleCategory(cat.name)} role="button" tabindex="0">
+          <span class="icon">{cat.icon}</span>
+          <span class="name">{cat.name}</span>
+          <span class="count">{cat.items?.length || 0}</span>
+          <div class="actions">
+            <button
+              class="btn-icon"
+              style="width:24px;height:24px;font-size:12px;"
+              onclick={(e) => { e.stopPropagation(); openAddNode(cat.name); }}
+              title="노드 추가"
+            >+</button>
+            <button
+              class="btn-icon"
+              style="width:24px;height:24px;font-size:10px;"
+              onclick={(e) => { e.stopPropagation(); openEditCategory(cat); }}
+              title="카테고리 편집"
+            >✏</button>
+            <button
+              class="btn-icon"
+              style="width:24px;height:24px;font-size:10px;color:var(--danger);"
+              onclick={(e) => { e.stopPropagation(); deleteCategory(cat.name); }}
+              title="카테고리 삭제"
+            >✕</button>
+          </div>
+          <span style="font-size:10px;color:var(--text-muted);">
+            {expandedCategories.has(cat.name) ? '▼' : '▶'}
+          </span>
+        </div>
+
+        {#if expandedCategories.has(cat.name) && cat.items}
+          {#each cat.items as node, i}
+            <div
+              class="node-item layer-{node.layer}"
+              class:negative-path={node.negative_path}
+            >
+              <span class="badge badge-{node.layer}">{node.layer.toUpperCase()}</span>
+              <span class="node-name">{node.name}</span>
+              <span class="node-action">{node.action}</span>
+              <button
+                class="btn-icon"
+                style="width:20px;height:20px;font-size:10px;opacity:0.5;"
+                onclick={() => openEditNode(cat.name, i, node)}
+                title="편집"
+              >✏</button>
+              <button
+                class="btn-icon"
+                style="width:20px;height:20px;font-size:10px;opacity:0.5;color:var(--danger);"
+                onclick={() => deleteNode(cat.name, i)}
+                title="삭제"
+              >✕</button>
+            </div>
+          {/each}
+        {/if}
+      </div>
+    {/each}
+  {/if}
+</div>
+
+<!-- Category Modal -->
+{#if showCategoryModal}
+  <div class="modal-overlay" onclick={() => showCategoryModal = false}>
+    <div class="modal" onclick={(e) => e.stopPropagation()}>
+      <h2>{editingCategory ? '카테고리 편집' : '새 카테고리'}</h2>
+      <div class="form-group">
+        <label>이름</label>
+        <input class="input" bind:value={formCategoryName} placeholder="카테고리 이름" />
+      </div>
+      <div class="form-group">
+        <label>아이콘</label>
+        <input class="input" bind:value={formCategoryIcon} placeholder="📁" style="width:80px;" />
+      </div>
+      {#if formError}
+        <div class="error-msg">{formError}</div>
+      {/if}
+      <div class="flex gap-sm" style="margin-top:16px; justify-content:flex-end;">
+        <button class="btn btn-secondary" onclick={() => showCategoryModal = false}>취소</button>
+        <button class="btn btn-primary" onclick={saveCategory} disabled={formSubmitting}>
+          {formSubmitting ? '저장 중...' : '저장'}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- Node Modal -->
+{#if showNodeModal}
+  <div class="modal-overlay" onclick={() => showNodeModal = false}>
+    <div class="modal" onclick={(e) => e.stopPropagation()}>
+      <h2>{editingNodeIndex !== null ? '노드 편집' : '새 노드'}</h2>
+      <div class="form-group">
+        <label>이름</label>
+        <input class="input" bind:value={formNodeName} placeholder="노드 이름" />
+      </div>
+      <div class="form-group">
+        <label>계층 (Layer)</label>
+        <select class="input" bind:value={formNodeLayer}>
+          <option value="why">WHY (의도/목적)</option>
+          <option value="how">HOW (논리/방법)</option>
+          <option value="what">WHAT (실행/작업)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>실행 유형</label>
+        <select class="input" bind:value={formNodeType}>
+          <option value="url">URL</option>
+          <option value="shell">Shell 명령</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>실행 내용</label>
+        <input class="input" bind:value={formNodeAction} placeholder="https://... 또는 명령어" />
+      </div>
+      <div class="form-group">
+        <label style="display:flex;align-items:center;gap:8px;">
+          <input type="checkbox" bind:checked={formNodeNegative} />
+          실패 경로 (Negative Path)
+        </label>
+      </div>
+      {#if formError}
+        <div class="error-msg">{formError}</div>
+      {/if}
+      <div class="flex gap-sm" style="margin-top:16px; justify-content:flex-end;">
+        <button class="btn btn-secondary" onclick={() => showNodeModal = false}>취소</button>
+        <button class="btn btn-primary" onclick={saveNode} disabled={formSubmitting}>
+          {formSubmitting ? '저장 중...' : '저장'}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}

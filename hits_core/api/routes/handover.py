@@ -10,7 +10,7 @@ Typical flow:
   Session starting → GET /api/handover?project_path=... (get context)
 """
 
-from typing import Optional
+from typing import Any, Optional
 from pathlib import Path
 
 from fastapi import APIRouter, Query
@@ -33,7 +33,7 @@ def get_service() -> HandoverService:
 
 class APIResponse(BaseModel):
     success: bool
-    data: Optional[dict] = None
+    data: Optional[Any] = None
     error: Optional[str] = None
 
 

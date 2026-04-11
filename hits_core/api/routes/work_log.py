@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Any
 from uuid import uuid4
 
 from fastapi import APIRouter, Query, HTTPException
@@ -45,7 +45,7 @@ class WorkLogUpdate(BaseModel):
 
 class APIResponse(BaseModel):
     success: bool
-    data: Optional[dict] = None
+    data: Optional[Any] = None
     error: Optional[str] = None
 
 

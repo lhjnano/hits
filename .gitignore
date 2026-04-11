@@ -65,6 +65,11 @@ secrets.yaml
 # Redis dump
 dump.rdb
 
-# PySide6 / Qt
+# Web UI
+hits_web/node_modules/
+hits_web/dist/
+hits_web/.svelte-kit/
+
+# PySide6 / Qt (legacy)
 *.ui.py
 *.qrc.py

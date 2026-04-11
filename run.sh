@@ -1,5 +1,6 @@
 #!/bin/bash
-# HITS Launcher for Linux/macOS/WSL
+# HITS Launcher - Web UI Mode
+# Starts the FastAPI server with Svelte web interface
 
 cd "$(dirname "$0")"
 
@@ -13,13 +14,15 @@ echo -e "${GREEN}HITS - Hybrid Intel Trace System${NC}"
 echo ""
 
 VENV_PATH="$PWD/venv"
+WEB_DIR="$PWD/hits_web"
+PORT="${HITS_PORT:-8765}"
 
 setup_venv() {
     echo -e "${CYAN}Setting up virtual environment...${NC}"
     python3 -m venv "$VENV_PATH"
     source "$VENV_PATH/bin/activate"
     
-    echo -e "${CYAN}Installing dependencies...${NC}"
+    echo -e "${CYAN}Installing Python dependencies...${NC}"
     pip install --upgrade pip -q
     pip install -r requirements.txt -q
 }
@@ -42,6 +45,34 @@ check_python() {
     echo -e "${GREEN}Python: $(python3 --version)${NC}"
 }
 
+check_node() {
+    if ! command -v node &> /dev/null; then
+        echo -e "${YELLOW}Node.js not found. Frontend build skipped.${NC}"
+        echo "  Install: https://nodejs.org/"
+        return 1
+    fi
+    echo -e "${GREEN}Node.js: $(node --version)${NC}"
+    return 0
+}
+
+build_frontend() {
+    if [ ! -d "$WEB_DIR/node_modules" ]; then
+        echo -e "${CYAN}Installing frontend dependencies...${NC}"
+        (cd "$WEB_DIR" && npm install)
+    fi
+
+    if [ ! -f "$WEB_DIR/dist/index.html" ] || [ "$HITS_REBUILD" = "1" ]; then
+        echo -e "${CYAN}Building frontend...${NC}"
+        (cd "$WEB_DIR" && npm run build)
+    fi
+
+    if [ -f "$WEB_DIR/dist/index.html" ]; then
+        echo -e "${GREEN}Frontend built OK${NC}"
+    else
+        echo -e "${YELLOW}Warning: Frontend not built. Run: cd hits_web && npm run build${NC}"
+    fi
+}
+
 preflight_checks() {
     echo -e "${CYAN}Running pre-flight checks...${NC}"
     echo ""
@@ -59,7 +90,8 @@ preflight_checks() {
     if ! python -c "
 from hits_core.models import Node, KnowledgeTree
 from hits_core.storage import FileStorage
-from hits_core.ai import SemanticCompressor
+from hits_core.auth import AuthManager
+from hits_core.api.server import APIServer
 print('OK')
 " 2>/dev/null; then
         echo -e "${RED}    ✗ Core imports failed${NC}"
@@ -69,21 +101,7 @@ print('OK')
         echo -e "${GREEN}    ✓ Core imports OK${NC}"
     fi
     
-    echo "  [2/3] Checking UI imports..."
-    if ! python -c "
-from hits_ui.panel import PanelWindow
-from hits_ui.widgets import NodeCard
-from hits_ui.theme import Theme
-print('OK')
-" 2>/dev/null; then
-        echo -e "${RED}    ✗ UI imports failed${NC}"
-        echo "    Run: ./run.sh --setup"
-        failed=1
-    else
-        echo -e "${GREEN}    ✓ UI imports OK${NC}"
-    fi
-    
-    echo "  [3/3] Checking config..."
+    echo "  [2/3] Checking config..."
     if [ ! -f "config/settings.yaml" ]; then
         echo -e "${RED}    ✗ config/settings.yaml not found${NC}"
         failed=1
@@ -91,33 +109,16 @@ print('OK')
         echo -e "${GREEN}    ✓ Config OK${NC}"
     fi
     
+    echo "  [3/3] Checking frontend..."
+    if [ -f "$WEB_DIR/dist/index.html" ]; then
+        echo -e "${GREEN}    ✓ Frontend OK${NC}"
+    else
+        echo -e "${YELLOW}    ⚠ Frontend not built${NC}"
+        echo "    Run: cd hits_web && npm install && npm run build"
+    fi
+    
     echo ""
     return $failed
-}
-
-run_tests() {
-    echo -e "${CYAN}Running import verification tests...${NC}"
-    echo ""
-    
-    if [ ! -d "$VENV_PATH" ]; then
-        setup_venv
-    else
-        activate_venv
-    fi
-    
-    pip install pytest pytest-asyncio -q 2>/dev/null
-    
-    python -m pytest tests/ui/test_imports.py -v --tb=short
-    local result=$?
-    
-    if [ $result -eq 0 ]; then
-        echo ""
-        echo -e "${GREEN}✓ All import tests passed!${NC}"
-    else
-        echo ""
-        echo -e "${RED}✗ Some tests failed. Please fix the errors above.${NC}"
-    fi
-    return $result
 }
 
 check_redis() {
@@ -131,11 +132,15 @@ check_redis() {
     echo "  To start Redis: cd scripts && ./setup_redis.sh --apt"
 }
 
-run_app() {
+run_server() {
     if [ ! -d "$VENV_PATH" ]; then
         setup_venv
     elif ! activate_venv; then
         setup_venv
+    fi
+    
+    if check_node; then
+        build_frontend
     fi
     
     if ! preflight_checks; then
@@ -145,8 +150,39 @@ run_app() {
     
     check_redis
     echo ""
-    echo -e "${GREEN}Starting HITS...${NC}"
-    python -m hits_ui.main
+    echo -e "${GREEN}Starting HITS web server on http://127.0.0.1:${PORT}${NC}"
+    echo -e "${CYAN}Press Ctrl+C to stop${NC}"
+    echo ""
+    
+    python -m hits_core.main --port "$PORT"
+}
+
+run_dev() {
+    if [ ! -d "$VENV_PATH" ]; then
+        setup_venv
+    else
+        activate_venv
+    fi
+    
+    pip install -r requirements.txt -q 2>/dev/null
+    
+    echo -e "${CYAN}Starting backend API on port ${PORT} (dev mode)...${NC}"
+    python -m hits_core.main --port "$PORT" --dev &
+    BACKEND_PID=$!
+    
+    sleep 2
+    
+    if check_node; then
+        if [ ! -d "$WEB_DIR/node_modules" ]; then
+            echo -e "${CYAN}Installing frontend dependencies...${NC}"
+            (cd "$WEB_DIR" && npm install)
+        fi
+        echo -e "${GREEN}Starting Vite dev server on http://localhost:5173${NC}"
+        echo -e "${CYAN}Backend API proxy at http://localhost:${PORT}${NC}"
+        (cd "$WEB_DIR" && npm run dev)
+    fi
+    
+    kill $BACKEND_PID 2>/dev/null
 }
 
 # Main
@@ -154,27 +190,42 @@ check_python
 
 case "${1:-}" in
     --test|-t)
-        run_tests
+        if [ -d "$VENV_PATH" ]; then activate_venv; else setup_venv; fi
+        pip install pytest pytest-asyncio -q 2>/dev/null
+        python -m pytest tests/core/ -v --tb=short
         ;;
     --setup|-s)
         setup_venv
+        if check_node; then build_frontend; fi
         echo -e "${GREEN}Setup complete! Run './run.sh' to start HITS.${NC}"
         ;;
     --check|-c)
-        preflight_checks
+        if activate_venv; then preflight_checks; fi
+        ;;
+    --dev|-d)
+        run_dev
+        ;;
+    --build|-b)
+        if check_node; then build_frontend; fi
         ;;
     --help|-h)
         echo "Usage: $0 [OPTIONS]"
         echo ""
         echo "Options:"
-        echo "  --test, -t    Run import verification tests"
-        echo "  --setup, -s   Setup virtual environment only"
-        echo "  --check, -c   Run pre-flight checks only"
-        echo "  --help, -h    Show this help"
+        echo "  --test, -t    Run tests"
+        echo "  --setup, -s   Setup environment (Python + frontend)"
+        echo "  --check, -c   Run pre-flight checks"
+        echo "  --dev,   -d   Start in development mode (Vite HMR)"
+        echo "  --build, -b   Build frontend only"
+        echo "  --help,  -h   Show this help"
         echo ""
-        echo "Without options, HITS will start normally."
+        echo "Without options, HITS starts the production web server."
+        echo ""
+        echo "Environment variables:"
+        echo "  HITS_PORT     Server port (default: 8765)"
+        echo "  HITS_REBUILD  Set to '1' to force frontend rebuild"
         ;;
     *)
-        run_app
+        run_server
         ;;
 esac

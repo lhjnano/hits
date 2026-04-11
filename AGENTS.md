@@ -11,9 +11,9 @@ Development guidelines for AI assistants (opencode, Claude, Cursor, etc.) workin
 ```
 
 This verifies:
-1. Core imports work correctly
-2. UI imports work correctly
-3. Configuration files exist
+1. Core imports work correctly (models, storage, auth, API)
+2. Configuration files exist
+3. Frontend is built
 
 If pre-flight checks fail, fix the errors before proceeding.
 
@@ -94,9 +94,24 @@ hits_get_recent     → 최근 작업 조회
 | `~/.hits/data/work_logs/` | 작업 기록 (JSON) |
 | `~/.hits/data/trees/` | 지식 트리 |
 | `~/.hits/data/workflows/` | 워크플로우 |
+| `~/.hits/.auth/` | 인증 데이터 (권한 600/700) |
 | `HITS_DATA_PATH` 환경변수 | 저장소 경로 오버라이드 |
 
 ## API Endpoints
+
+### 인증
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/auth/status` | 인증 상태 (초기화 여부, 로그인 여부) |
+| POST | `/api/auth/register` | 사용자 등록 (첫 사용자 = admin) |
+| POST | `/api/auth/login` | 로그인 (HttpOnly 쿠키 설정) |
+| POST | `/api/auth/logout` | 로그아웃 |
+| POST | `/api/auth/refresh` | 액세스 토큰 갱신 |
+| GET | `/api/auth/me` | 현재 사용자 정보 |
+| PUT | `/api/auth/password` | 비밀번호 변경 |
+
+### 작업 기록
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -107,9 +122,31 @@ hits_get_recent     → 최근 작업 조회
 | GET | `/api/work-log/{id}` | 단건 조회 |
 | PUT | `/api/work-log/{id}` | 수정 |
 | DELETE | `/api/work-log/{id}` | 삭제 |
+
+### 인수인계
+
+| Method | Path | Description |
+|--------|------|-------------|
 | GET | `/api/handover?project_path=...` | 프로젝트별 인수인계 요약 |
 | GET | `/api/handover/projects` | 프로젝트 목록 |
 | GET | `/api/handover/project-stats?project_path=...` | 프로젝트 통계 |
+
+### 지식 카테고리
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/knowledge/categories` | 카테고리 목록 |
+| POST | `/api/knowledge/category` | 카테고리 생성 |
+| PUT | `/api/knowledge/category/{name}` | 카테고리 수정 |
+| DELETE | `/api/knowledge/category/{name}` | 카테고리 삭제 |
+| POST | `/api/knowledge/category/{name}/nodes` | 노드 추가 |
+| PUT | `/api/knowledge/category/{name}/nodes/{idx}` | 노드 수정 |
+| DELETE | `/api/knowledge/category/{name}/nodes/{idx}` | 노드 삭제 |
+
+### 지식 트리 (노드 기반)
+
+| Method | Path | Description |
+|--------|------|-------------|
 | POST | `/api/node` | 지식 노드 생성 |
 | PUT | `/api/node/{id}` | 지식 노드 수정 |
 | DELETE | `/api/node/{id}` | 지식 노드 삭제 |
@@ -133,71 +170,110 @@ hits_get_recent     → 최근 작업 조회
    ./run.sh --test
    ```
 
-3. If UI changes:
-   - Test GUI manually: `./run.sh`
-   - Verify Korean fonts render correctly
-   - Check window positioning
+3. If frontend changes:
+   ```bash
+   cd hits_web && npm run build
+   ```
+
+4. Development mode (hot reload):
+   ```bash
+   ./run.sh --dev
+   ```
 
 ## Project Structure
 
 ```
-hits_core/                    # Apache 2.0 - No GUI dependencies
-├── models/                # Node, Tree, Workflow, WorkLog
-├── storage/               # Redis, File storage (~/.hits/data/)
-├── ai/                    # Compression, SLM filter, LLM client
-├── platform/              # Cross-platform utilities
-├── service/               # TreeService, HandoverService
-├── api/                   # FastAPI server + routes
-│   └── routes/            # health, work_log, node, handover
-├── collector/             # Git, Shell, AI session collectors
-└── mcp/                   # MCP server (stdio transport)
+hits_core/                    # Apache 2.0 - Backend
+├── auth/                   # Authentication & security
+│   ├── manager.py          # Argon2id + JWT + user management
+│   ├── middleware.py        # CSP, security headers
+│   └── dependencies.py     # FastAPI auth dependencies
+├── models/                 # Node, Tree, Workflow, WorkLog
+├── storage/                # Redis, File storage (~/.hits/data/)
+├── ai/                     # Compression, SLM filter, LLM client
+├── platform/               # Cross-platform utilities
+├── service/                # TreeService, HandoverService, KnowledgeService
+├── api/                    # FastAPI server + routes
+│   └── routes/             # health, work_log, node, handover, auth, knowledge
+├── collector/              # Git, Shell, AI session collectors
+├── mcp/                    # MCP server (stdio transport)
+└── main.py                 # Web server entry point
 
-hits_ui/                      # LGPL v3.0 - PySide6 GUI
-├── panel/                 # PanelWindow, TimelineView, TreeView
-├── widgets/               # ContextCard, NodeCard
-├── dialogs/               # WorkLogDialog, HandoverDialog, NodeDialog
-├── theme/                 # Material Dark theme
-└── main.py               # Entry point
+hits_web/                      # Apache 2.0 - Svelte 5 Web UI
+├── src/
+│   ├── lib/                # API client, stores, CSS
+│   ├── components/         # Svelte components
+│   │   ├── Login.svelte    # Authentication page
+│   │   ├── MainLayout.svelte  # App shell with sidebar + header
+│   │   ├── KnowledgeTree.svelte  # Knowledge category CRUD
+│   │   ├── Timeline.svelte    # Work log timeline
+│   │   └── HandoverPanel.svelte  # Handover summary view
+│   ├── App.svelte          # Root component
+│   └── main.ts             # Entry point
+├── dist/                   # Built static files (served by FastAPI)
+├── package.json
+├── vite.config.ts
+└── tsconfig.json
 
 config/                       # Configuration files
 ├── settings.yaml          # Main config
 └── schema.json            # JSON schema
 
 tests/                       # Test files
-├── core/                  # Core tests (no GUI)
-└── ui/                    # UI tests
+└── core/                  # Core tests
 ```
+
+## Security Architecture
+
+### Authentication Flow
+
+```
+Browser → POST /api/auth/login → Argon2id verify → JWT HttpOnly cookies
+         ← Set-Cookie: access_token (15min, /)
+         ← Set-Cookie: refresh_token (7d, /api/auth/refresh)
+```
+
+### Protected Endpoints
+
+All `/api/*` endpoints except `/api/health`, `/api/auth/*` require authentication via:
+- `access_token` HttpOnly cookie, OR
+- `Authorization: Bearer <token>` header
+
+### Data Protection
+
+- Password files: `chmod 600` (owner read/write only)
+- Auth directory: `chmod 700` (owner access only)
+- Pepper/JWT secret: auto-generated, stored in `~/.hits/`
 
 ## Common Issues and Solutions
 
 ### Import Errors
 ```
-ModuleNotFoundError: No module named 'hits_ui.xxx'
+ModuleNotFoundError: No module named 'hits_core.auth'
 ```
 
 **Solution:**
-1. Check file exists: `ls hits_ui/xxx/`
-2. Check `__init__.py` has correct exports
-3. Run: `./run.sh --check`
+1. Reinstall dependencies: `./run.sh --setup`
+2. Run: `./run.sh --check`
 
-### Korean Font Issues
+### Frontend Not Loading
 ```
-Text appears as boxes or garbled
-```
-
-**Solution:**
-1. Fonts load automatically from Windows (WSL) or bundled fonts
-2. Check: `./run.sh` and look for font loading messages
-3. Settings dialog: click ⚙ → change font
-
-### Window Position Issues
-```
-Window jumps around when toggling
+HITS Web UI not built yet
 ```
 
 **Solution:**
-- Panel position is now remembered between toggles
-- Position resets only on explicit request
+```bash
+cd hits_web && npm install && npm run build
+```
+
+### Auth System Not Initialized
+
+First run requires creating an admin account through the web UI or API:
+```bash
+curl -X POST http://localhost:8765/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"your-secure-password"}'
+```
 
 ## Testing
 
@@ -214,8 +290,9 @@ python -m pytest tests/core/test_ai.py -v
 
 ## Key Reminders
 
-- **hits_core**: Must NEVER import PySide6 or any GUI library
-- **hits_ui**: Can import from hits_core, but not vice versa
-- **Cross-platform**: Test on Linux, Windows, and macOS if possible
-- **Korean support**: Always verify fonts load correctly on WSL
+- **hits_core**: No GUI dependencies. FastAPI serves both API and static frontend.
+- **hits_web**: Svelte 5 frontend, built to `dist/` and served by FastAPI.
+- **Security**: All sensitive endpoints require auth. Use `Depends(require_auth)`.
 - **Centralized storage**: All data goes to `~/.hits/data/`, not `./data/`
+- **Argon2id**: Preferred password hasher. Falls back to HMAC-SHA256 if not installed.
+- **JWT**: Uses `python-jose` if available, falls back to HMAC-based tokens.

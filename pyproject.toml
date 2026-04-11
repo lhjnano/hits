@@ -32,9 +32,8 @@ core = [
     "pyyaml>=6.0",
     "fastapi>=0.100.0",
     "uvicorn>=0.23.0",
-]
-ui = [
-    "PySide6>=6.5.0",
+    "argon2-cffi>=23.1.0",
+    "python-jose[cryptography]>=3.3.0",
 ]
 dev = [
     "pytest>=7.0.0",
@@ -43,11 +42,10 @@ dev = [
 ]
 
 [project.scripts]
-hits = "hits_ui.main:main"
-hits-cli = "hits_core.cli:main"
+hits = "hits_core.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["hits_core*", "hits_ui*"]
+include = ["hits_core*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -57,5 +55,5 @@ python_functions = ["test_*"]
 addopts = "-v --tb=short"
 
 [tool.coverage.run]
-source = ["hits_core", "hits_ui"]
+source = ["hits_core"]
 omit = ["*/tests/*", "*/__pycache__/*"]
