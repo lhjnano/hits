@@ -1,0 +1,143 @@
+# HITS 프로젝트 지식 트리 샘플
+# 이 파일은 HITS 지식 트리 구조의 예시입니다.
+
+tree:
+  id: hits-knowledge-001
+  name: "HITS 프로젝트 핵심 지식"
+  description: "HITS 시스템 개발에 필요한 핵심 지식 트리"
+  
+  nodes:
+    # WHY Layer - 의도/목적
+    - id: why-architecture
+      layer: why
+      title: "시스템 아키텍처 이해"
+      description: |
+        HITS는 hits_core(순수 Python) + hits_ui(PySide6) 구조
+        → 목적: AI 토큰 최적화 + 지식 보존
+        → 격리: core는 GUI 의존성 없음
+        → 저장: ~/.hits/data/에 중앙 집중
+      tokens_saved: 50
+      
+    - id: why-handover
+      layer: why
+      title: "AI 세션 인수인계"
+      description: |
+        토큰 한계 등으로 AI 교체 시 프로젝트 컨텍스트 유지
+        → 프로젝트별 project_path로 격리
+        → 세션 종료 시 작업 기록, 시작 시 요약 조회
+      tokens_saved: 40
+      
+    # HOW Layer - 논리/방법
+    - id: how-storage
+      layer: how
+      title: "중앙 집중 저장소"
+      parent_id: why-architecture
+      description: |
+        FileStorage 기본 경로: ~/.hits/data/
+        → work_logs/: 작업 기록 JSON
+        → trees/: 지식 트리
+        → HITS_DATA_PATH 환경변수로 오버라이드
+      tokens_saved: 35
+      
+    - id: how-mcp
+      layer: how
+      title: "MCP 인터페이스"
+      parent_id: why-handover
+      description: |
+        hits_core/mcp/server.py가 MCP 서버 제공
+        → 5개 툴: record_work, get_handover, search_works, list_projects, get_recent
+        → stdio transport로 Claude/OpenCode와 직접 통신
+      tokens_saved: 30
+      
+    - id: how-api
+      layer: how
+      title: "HTTP API 서버"
+      parent_id: why-handover
+      description: |
+        FastAPI 기반, 포트 8765
+        → /api/handover: 인수인계 요약
+        → /api/work-log: 작업 기록 CRUD
+        → /api/work-logs/search: 검색 (project_path 스코프)
+      tokens_saved: 30
+      
+    - id: how-compression
+      layer: how
+      title: "시멘틱 압축"
+      parent_id: why-architecture
+      description: |
+        SemanticCompressor가 한국어 키워드를 기호로 치환
+        → "따라서" → "→", "중요" → "★", "필수" → "!"
+        → SLMFilter가 CRITICAL/IMPORTANT/NOISE 분류
+      node_type: "negative_path"
+      tokens_saved: 25
+      
+    # WHAT Layer - 실행/작업
+    - id: what-run
+      layer: what
+      title: "실행 방법"
+      parent_id: how-storage
+      description: |
+        ./run.sh          # GUI 실행
+        ./run.sh --check  # pre-flight 체크
+        ./run.sh --test   # 테스트 실행
+      action: "bash ./run.sh"
+      action_type: shell
+      tokens_saved: 15
+      
+    - id: what-record
+      layer: what
+      title: "작업 기록"
+      parent_id: how-api
+      description: |
+        curl -X POST http://localhost:8765/api/work-log \
+          -d '{"performed_by":"opencode","request_text":"요약","source":"ai_session","project_path":"/절대경로"}'
+      action: "curl -X POST http://localhost:8765/api/work-log"
+      action_type: shell
+      tokens_saved: 20
+      
+    - id: what-handover
+      layer: what
+      title: "인수인계 조회"
+      parent_id: how-api
+      description: |
+        curl http://localhost:8765/api/handover?project_path=/my/project
+        → 프로젝트별 작업 이력, 결정 사항, 미완료 항목 반환
+      action: "curl http://localhost:8765/api/handover?project_path=$(pwd)"
+      action_type: shell
+      tokens_saved: 20
+
+# 인과관계 워크플로우
+workflow:
+  id: ai-session-handover
+  name: "AI 세션 인수인계 워크플로우"
+  description: "AI 세션 전환 시 표준 인수인계 절차"
+  
+  steps:
+    - id: step-start
+      name: "세션 시작"
+      step_type: trigger
+      node_id: why-handover
+      next_steps: ["step-check-handover"]
+      
+    - id: step-check-handover
+      name: "이전 작업 확인"
+      step_type: action
+      node_id: what-handover
+      next_steps: ["step-work"]
+      
+    - id: step-work
+      name: "작업 수행"
+      step_type: action
+      node_id: what-run
+      next_steps: ["step-record"]
+      
+    - id: step-record
+      name: "작업 기록"
+      step_type: action
+      node_id: what-record
+      next_steps: ["step-end"]
+      
+    - id: step-end
+      name: "세션 종료"
+      step_type: outcome
+      node_id: why-handover

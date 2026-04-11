@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hits"
+version = "0.2.0"
+description = "Hybrid Intel Trace System - AI-efficient knowledge preservation and session handover"
+readme = "README.md"
+license = {text = "Apache-2.0"}
+requires-python = ">=3.10"
+authors = [
+    {name = "HITS Team"}
+]
+keywords = ["knowledge-management", "ai", "workflow", "tree-structure", "session-handover", "mcp"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business :: Knowledge Management",
+]
+
+[project.optional-dependencies]
+core = [
+    "redis>=4.5.0",
+    "pydantic>=2.0.0",
+    "pyyaml>=6.0",
+    "fastapi>=0.100.0",
+    "uvicorn>=0.23.0",
+]
+ui = [
+    "PySide6>=6.5.0",
+]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
+]
+
+[project.scripts]
+hits = "hits_ui.main:main"
+hits-cli = "hits_core.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["hits_core*", "hits_ui*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+
+[tool.coverage.run]
+source = ["hits_core", "hits_ui"]
+omit = ["*/tests/*", "*/__pycache__/*"]

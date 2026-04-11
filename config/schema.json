@@ -1,0 +1,94 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "HITS Configuration Schema",
+  "description": "Configuration schema for HITS - Hybrid Intel Trace System",
+  "type": "object",
+  "properties": {
+    "settings": {
+      "type": "object",
+      "properties": {
+        "edge": {
+          "type": "string",
+          "enum": ["left", "right"],
+          "default": "right",
+          "description": "Panel edge position"
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 200,
+          "maximum": 600,
+          "default": 340,
+          "description": "Panel width in pixels"
+        },
+        "tab_label": {
+          "type": "string",
+          "default": "🌳",
+          "description": "Tab button label (emoji or text)"
+        },
+        "storage": {
+          "type": "string",
+          "enum": ["auto", "redis", "file"],
+          "default": "auto",
+          "description": "Storage backend. 'auto' uses Redis if available, falls back to file"
+        },
+        "font": {
+          "type": "object",
+          "properties": {
+            "auto_detect": {
+              "type": "boolean",
+              "default": true,
+              "description": "Auto-detect best Korean font"
+            },
+            "family": {
+              "type": ["string", "null"],
+              "default": null,
+              "description": "Override font family name"
+            },
+            "size": {
+              "type": "integer",
+              "minimum": 8,
+              "maximum": 24,
+              "default": 10
+            }
+          }
+        }
+      }
+    },
+    "project_paths": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "List of project directory paths to monitor for Git activity"
+    },
+    "categories": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "icon", "items"],
+        "properties": {
+          "name": {"type": "string"},
+          "icon": {"type": "string"},
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name", "layer", "type", "action"],
+              "properties": {
+                "name": {"type": "string"},
+                "layer": {
+                  "type": "string",
+                  "enum": ["why", "how", "what"]
+                },
+                "type": {
+                  "type": "string",
+                  "enum": ["url", "shell", "app"]
+                },
+                "action": {"type": "string"},
+                "negative_path": {"type": "boolean", "default": false}
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

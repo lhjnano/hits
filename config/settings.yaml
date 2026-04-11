@@ -1,0 +1,102 @@
+# HITS Configuration
+
+settings:
+  edge: right
+  width: 340
+  tab_label: "🌳"
+  storage: auto
+  
+  font:
+    auto_detect: true
+    family: null
+    size: 10
+
+categories:
+  - name: 배포 파이프라인
+    icon: 🚀
+    items:
+      - name: CI/CD 흐름 이해
+        layer: why
+        type: url
+        action: https://docs.example.com/cicd
+      - name: Jenkins 빌드 설정
+        layer: how
+        type: url
+        action: https://jenkins.example.com/configure
+      - name: 프로덕션 배포 실행
+        layer: what
+        type: shell
+        action: bash ~/scripts/deploy.sh production
+      - name: 롤백 절차
+        layer: how
+        type: url
+        action: https://docs.example.com/rollback
+        negative_path: true
+  
+  - name: 장애 대응
+    icon: 🔥
+    items:
+      - name: 장애 감지 및 알림
+        layer: why
+        type: url
+        action: https://monitoring.example.com/alerts
+      - name: 로그 분석 방법
+        layer: how
+        type: shell
+        action: bash ~/scripts/analyze_logs.sh
+      - name: 서비스 재시작
+        layer: what
+        type: shell
+        action: bash ~/scripts/restart_service.sh
+      - name: 장애 보고서 작성
+        layer: what
+        type: url
+        action: https://docs.google.com/document/create
+  
+  - name: 코드베이스 구조
+    icon: 📋
+    items:
+      - name: 아키텍처 개요
+        layer: why
+        type: url
+        action: https://wiki.example.com/architecture
+      - name: 모듈 의존성
+        layer: how
+        type: url
+        action: https://wiki.example.com/dependencies
+      - name: 주요 API 엔드포인트
+        layer: what
+        type: url
+        action: https://api.example.com/docs
+  
+  - name: 테스트 가이드
+    icon: 🧪
+    items:
+      - name: 테스트 전략
+        layer: why
+        type: url
+        action: https://wiki.example.com/test-strategy
+      - name: 단위 테스트 작성법
+        layer: how
+        type: shell
+        action: pytest tests/ -v
+      - name: 통합 테스트 실행
+        layer: what
+        type: shell
+        action: pytest tests/integration/ -v
+  
+  - name: 보안 & 권한
+    icon: 🔐
+    items:
+      - name: 보안 정책
+        layer: why
+        type: url
+        action: https://wiki.example.com/security
+      - name: SSH 키 관리
+        layer: how
+        type: shell
+        action: ssh-add -l
+      - name: 비밀번호 변경
+        layer: what
+        type: url
+        action: https://account.example.com/password

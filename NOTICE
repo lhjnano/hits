@@ -1,0 +1,64 @@
+HITS - Hybrid Intel Trace System
+Third-Party Notices and License Information
+
+================================================================================
+hits_core - Apache License 2.0
+================================================================================
+
+The hits_core package is licensed under the Apache License 2.0.
+See LICENSE file for full text.
+
+================================================================================
+hits_ui - GNU Lesser General Public License v3.0
+================================================================================
+
+The hits_ui package is licensed under the GNU Lesser General Public License v3.0.
+
+This package uses PySide6, which is licensed under LGPL v3.
+If you modify hits_ui and distribute it, you must:
+1. Make the modified source code available under LGPL v3
+2. Allow users to replace the library with a modified version
+
+PySide6 is a Qt for Python product of The Qt Company Ltd.
+Copyright (C) The Qt Company Ltd.
+
+Qt is available under multiple licenses:
+- LGPL v3 (default)
+- GPL v3
+- Commercial license
+
+For more information, see: https://www.qt.io/licensing/
+
+================================================================================
+Third-Party Dependencies
+================================================================================
+
+redis (MIT License)
+Copyright (c) Andy McCurdy
+https://github.com/redis/redis-py
+
+pydantic (MIT License)
+Copyright (c) 2017 Samuel Colvin
+https://github.com/pydantic/pydantic
+
+PyYAML (MIT License)
+Copyright (c) 2017-2021 Ingy döt Net
+Copyright (c) 2006-2016 Kirill Simonov
+https://github.com/yaml/pyyaml
+
+pytest (MIT License)
+Copyright (c) 2004-2021 Holger Krekel and others
+https://github.com/pytest-dev/pytest
+
+================================================================================
+License Compatibility Notes
+================================================================================
+
+For commercial use:
+- hits_core: Can be used in closed-source commercial products
+- hits_ui: Must be dynamically linked; modifications must be shared under LGPL
+
+To use this software commercially without LGPL obligations:
+1. Use only hits_core (backend functionality)
+2. Link to hits_ui dynamically (no static linking)
+3. Do not modify hits_ui; if you do, share modifications under LGPL
