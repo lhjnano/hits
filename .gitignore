@@ -70,6 +70,10 @@ hits_web/node_modules/
 hits_web/dist/
 hits_web/.svelte-kit/
 
+# Node.js (root)
+node_modules/
+package-lock.json
+
 # PySide6 / Qt (legacy)
 *.ui.py
 *.qrc.py

@@ -1,6 +1,7 @@
 #!/bin/bash
-# HITS Launcher - Web UI Mode
-# Starts the FastAPI server with Svelte web interface
+# HITS Launcher
+# Primary: Node.js server (Express + Python backend)
+# Fallback: Python-only mode (FastAPI serves everything)
 
 cd "$(dirname "$0")"
 
@@ -47,8 +48,7 @@ check_python() {
 
 check_node() {
     if ! command -v node &> /dev/null; then
-        echo -e "${YELLOW}Node.js not found. Frontend build skipped.${NC}"
-        echo "  Install: https://nodejs.org/"
+        echo -e "${YELLOW}Node.js not found. Falling back to Python-only mode.${NC}"
         return 1
     fi
     echo -e "${GREEN}Node.js: $(node --version)${NC}"
@@ -132,28 +132,51 @@ check_redis() {
     echo "  To start Redis: cd scripts && ./setup_redis.sh --apt"
 }
 
-run_server() {
+# ─── Node.js Server Mode (primary) ──────────────────────────────
+
+run_node_server() {
+    if [ ! -d "$VENV_PATH" ]; then
+        setup_venv
+    fi
+
+    build_frontend
+    check_redis
+    echo ""
+
+    if [ ! -f "$WEB_DIR/dist/index.html" ]; then
+        echo -e "${RED}Error: Frontend not built.${NC}"
+        echo "Run: cd hits_web && npm install && npm run build"
+        exit 1
+    fi
+
+    echo -e "${CYAN}Starting HITS via Node.js server...${NC}"
+    echo -e "${GREEN}http://127.0.0.1:${PORT}${NC}"
+    echo -e "${CYAN}Press Ctrl+C to stop${NC}"
+    echo ""
+
+    node bin/hits.js --port "$PORT" "$@"
+}
+
+# ─── Python-Only Mode (fallback) ────────────────────────────────
+
+run_python_server() {
     if [ ! -d "$VENV_PATH" ]; then
         setup_venv
     elif ! activate_venv; then
         setup_venv
     fi
-    
-    if check_node; then
-        build_frontend
-    fi
-    
+
     if ! preflight_checks; then
         echo -e "${RED}Pre-flight checks failed. Fix errors above.${NC}"
         exit 1
     fi
-    
+
     check_redis
     echo ""
     echo -e "${GREEN}Starting HITS web server on http://127.0.0.1:${PORT}${NC}"
     echo -e "${CYAN}Press Ctrl+C to stop${NC}"
     echo ""
-    
+
     python -m hits_core.main --port "$PORT"
 }
 
@@ -185,7 +208,8 @@ run_dev() {
     kill $BACKEND_PID 2>/dev/null
 }
 
-# Main
+# ─── Main ───────────────────────────────────────────────────────
+
 check_python
 
 case "${1:-}" in
@@ -208,24 +232,40 @@ case "${1:-}" in
     --build|-b)
         if check_node; then build_frontend; fi
         ;;
+    --python-only)
+        run_python_server
+        ;;
     --help|-h)
         echo "Usage: $0 [OPTIONS]"
         echo ""
         echo "Options:"
-        echo "  --test, -t    Run tests"
-        echo "  --setup, -s   Setup environment (Python + frontend)"
-        echo "  --check, -c   Run pre-flight checks"
-        echo "  --dev,   -d   Start in development mode (Vite HMR)"
-        echo "  --build, -b   Build frontend only"
-        echo "  --help,  -h   Show this help"
+        echo "  --test, -t          Run tests"
+        echo "  --setup, -s         Setup environment (Python + frontend)"
+        echo "  --check, -c         Run pre-flight checks"
+        echo "  --dev,   -d         Start in development mode (Vite HMR)"
+        echo "  --build, -b         Build frontend only"
+        echo "  --python-only       Use Python-only mode (no Node.js)"
+        echo "  --help,  -h         Show this help"
         echo ""
-        echo "Without options, HITS starts the production web server."
+        echo "Without options, HITS starts the production server."
+        echo "  - With Node.js: uses Express server + Python backend"
+        echo "  - Without Node.js: falls back to Python-only mode"
         echo ""
         echo "Environment variables:"
-        echo "  HITS_PORT     Server port (default: 8765)"
-        echo "  HITS_REBUILD  Set to '1' to force frontend rebuild"
+        echo "  HITS_PORT           Server port (default: 8765)"
+        echo "  HITS_REBUILD        Set to '1' to force frontend rebuild"
         ;;
     *)
-        run_server
+        # Primary: Node.js mode if available, fallback to Python-only
+        NODE_ARGS=""
+        if [ "${1:-}" = "--dev" ]; then
+            NODE_ARGS="--dev"
+        fi
+
+        if check_node; then
+            run_node_server $NODE_ARGS
+        else
+            run_python_server
+        fi
         ;;
 esac

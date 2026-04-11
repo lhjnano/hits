@@ -1,0 +1,42 @@
+{
+  "name": "hits",
+  "version": "0.2.0",
+  "description": "HITS - Hybrid Intel Trace System. AI session handover with secure web UI.",
+  "keywords": ["knowledge-management", "ai", "session-handover", "mcp"],
+  "license": "Apache-2.0",
+  "author": "HITS Team",
+  "type": "module",
+  "bin": {
+    "hits": "./bin/hits.js"
+  },
+  "scripts": {
+    "start": "node bin/hits.js",
+    "dev": "node bin/hits.js --dev",
+    "build": "cd hits_web && npm run build",
+    "setup": "node bin/hits.js --setup",
+    "test": "cd hits_web && npm run build"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "bin/",
+    "server.js",
+    "hits_core/**/*.py",
+    "hits_core/**/__init__.py",
+    "!hits_core/**/__pycache__",
+    "!hits_core/**/*.pyc",
+    "!hits_core/**/*.pyo",
+    "hits_web/dist/",
+    "config/",
+    "data/dev_handover.yaml",
+    "requirements.txt",
+    "requirements-core.txt",
+    "run.sh",
+    "AGENTS.md"
+  ],
+  "dependencies": {
+    "express": "^4.21.0",
+    "http-proxy-middleware": "^3.0.0"
+  }
+}

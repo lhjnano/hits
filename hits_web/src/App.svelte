@@ -2,7 +2,8 @@
   import './lib/styles.css';
   import { onMount } from 'svelte';
   import { api } from './lib/api';
-  import { authStore, uiStore } from './lib/stores';
+  import { initLocale } from './lib/i18n';
+  import { authStore } from './lib/stores';
   import Login from './components/Login.svelte';
   import MainLayout from './components/MainLayout.svelte';
 
@@ -11,6 +12,7 @@
   let loading = $state(true);
 
   onMount(async () => {
+    initLocale();
     const res = await api.auth.status();
     if (res.success && res.data) {
       initialized = res.data.initialized;
@@ -58,7 +60,7 @@
     <div class="login-container">
       <div class="loading">
         <div class="spinner" style="width:32px;height:32px;margin-right:12px;"></div>
-        <span>HITS 로딩 중...</span>
+        <span>HITS...</span>
       </div>
     </div>
   {:else if !authenticated}

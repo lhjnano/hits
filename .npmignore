@@ -1,0 +1,80 @@
+# Git
+.git/
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.tox/
+.nox/
+.coverage
+htmlcov/
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Node.js
+node_modules/
+package-lock.json
+
+# Frontend source (only dist/ is published)
+hits_web/node_modules/
+hits_web/src/
+hits_web/.svelte-kit/
+hits_web/package.json
+hits_web/vite.config.ts
+hits_web/tsconfig.json
+hits_web/index.html
+hits_web/*.lock
+
+# Tests
+tests/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.code-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Environment / Secrets
+.env
+.env.*
+credentials.json
+secrets.yaml
+
+# Logs
+*.log
+
+# Redis
+dump.rdb
+
+# Scripts (dev only)
+scripts/
+
+# Runtime data
+data/work_logs/
+data/trees/
+data/workflows/
+
+# Dev files
+run.bat
+pyproject.toml
+README.md
+LICENSE
+NOTICE

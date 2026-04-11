@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { api } from '../lib/api';
   import { uiStore, workLogsStore } from '../lib/stores';
+  import { t } from '../lib/i18n';
 
   let logs = $state<any[]>([]);
   let loading = $state(true);
@@ -66,7 +67,7 @@
     return Object.entries(groups)
       .sort(([a], [b]) => b.localeCompare(a))
       .map(([date, items]) => ({
-        label: date === today ? '오늘' : date === yesterday ? '어제' : date,
+        label: date === today ? t('timeline.today') : date === yesterday ? t('timeline.yesterday') : date,
         items,
       }));
   }
@@ -108,7 +109,7 @@
       context: formContext,
       performed_by: formPerformedBy,
       source: 'manual',
-      tags: formTags.split(',').map(t => t.trim()).filter(Boolean),
+      tags: formTags.split(',').map(tag => tag.trim()).filter(Boolean),
       project_path: uiStore.value.selectedProject || undefined,
     };
 
@@ -124,12 +125,12 @@
       showAddModal = false;
       await loadLogs();
     } else {
-      formError = res.error || '저장 실패';
+      formError = res.error || 'Save failed';
     }
   }
 
   async function deleteLog(id: string) {
-    if (!confirm('이 작업 기록을 삭제하시겠습니까?')) return;
+    if (!confirm(t('timeline.confirmDelete'))) return;
     await api.workLogs.delete(id);
     await loadLogs();
   }
@@ -138,24 +139,24 @@
   let projectLabel = $derived(
     uiStore.value.selectedProject
       ? uiStore.value.selectedProject.split('/').pop()
-      : '전체 프로젝트'
+      : t('timeline.allProjects')
   );
 </script>
 
 <div>
   <div class="flex items-center gap-sm" style="margin-bottom:16px;">
-    <h2 style="font-size:16px; flex:1;">📝 타임라인 — {projectLabel}</h2>
+    <h2 style="font-size:16px; flex:1;">📝 {t('timeline.title')} — {projectLabel}</h2>
     <div class="flex gap-sm" style="flex:1; max-width:300px;">
       <input
         class="input"
         type="text"
-        placeholder="검색..."
+        placeholder={t('search') + '...'}
         bind:value={searchQuery}
         onkeydown={(e) => e.key === 'Enter' && handleSearch()}
       />
       <button class="btn btn-secondary btn-sm" onclick={handleSearch}>🔍</button>
     </div>
-    <button class="btn btn-primary btn-sm" onclick={openAddLog}>+ 기록</button>
+    <button class="btn btn-primary btn-sm" onclick={openAddLog}>+ {t('timeline.addLog')}</button>
   </div>
 
   {#if loading}
@@ -163,15 +164,15 @@
   {:else if logs.length === 0}
     <div class="empty-state">
       <div class="icon">📝</div>
-      <div class="message">작업 기록이 없습니다</div>
-      <button class="btn btn-primary btn-sm" onclick={openAddLog}>작업 기록하기</button>
+      <div class="message">{t('timeline.noLogs')}</div>
+      <button class="btn btn-primary btn-sm" onclick={openAddLog}>{t('timeline.createLog')}</button>
     </div>
   {:else}
     {#each grouped as group}
       <div class="timeline-date">{group.label}</div>
       {#each group.items as log}
         <div class="timeline-item">
-          <div class="summary">{log.request_text || log.context || '(내용 없음)'}</div>
+          <div class="summary">{log.request_text || log.context || `(${t('empty.noData')})`}</div>
           <div class="meta">
             <span>{formatTime(log.performed_at)}</span>
             <span>·</span>
@@ -204,17 +205,17 @@
 {#if showAddModal}
   <div class="modal-overlay" onclick={() => showAddModal = false}>
     <div class="modal" onclick={(e) => e.stopPropagation()}>
-      <h2>{editingLog ? '작업 기록 편집' : '새 작업 기록'}</h2>
+      <h2>{editingLog ? t('timeline.editLog') : t('timeline.newLog')}</h2>
       <div class="form-group">
-        <label>작업 요약</label>
-        <input class="input" bind:value={formSummary} placeholder="무엇을 했나요?" />
+        <label>{t('timeline.summary')}</label>
+        <input class="input" bind:value={formSummary} placeholder={t('timeline.summary')} />
       </div>
       <div class="form-group">
-        <label>상세 내용</label>
-        <textarea class="input" bind:value={formContext} placeholder="결정 사항, 맥락 등"></textarea>
+        <label>{t('timeline.context')}</label>
+        <textarea class="input" bind:value={formContext} placeholder={t('timeline.context')}></textarea>
       </div>
       <div class="form-group">
-        <label>수행자</label>
+        <label>{t('timeline.performer')}</label>
         <select class="input" bind:value={formPerformedBy}>
           <option value="manual">manual</option>
           <option value="opencode">opencode</option>
@@ -224,16 +225,16 @@
         </select>
       </div>
       <div class="form-group">
-        <label>태그 (콤마로 구분)</label>
-        <input class="input" bind:value={formTags} placeholder="기능개발, 버그수정" />
+        <label>{t('timeline.tags')}</label>
+        <input class="input" bind:value={formTags} placeholder={t('timeline.tags')} />
       </div>
       {#if formError}
         <div class="error-msg">{formError}</div>
       {/if}
       <div class="flex gap-sm" style="margin-top:16px; justify-content:flex-end;">
-        <button class="btn btn-secondary" onclick={() => showAddModal = false}>취소</button>
+        <button class="btn btn-secondary" onclick={() => showAddModal = false}>{t('cancel')}</button>
         <button class="btn btn-primary" onclick={saveLog} disabled={formSubmitting}>
-          {formSubmitting ? '저장 중...' : '저장'}
+          {formSubmitting ? t('knowledge.saving') : t('save')}
         </button>
       </div>
     </div>

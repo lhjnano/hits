@@ -1,5 +1,6 @@
 <script lang="ts">
   import { api } from '../lib/api';
+  import { t } from '../lib/i18n';
 
   let { initialized, onLogin } = $props<{
     initialized: boolean;
@@ -19,11 +20,11 @@
 
     if (isRegister) {
       if (password !== confirmPassword) {
-        error = '비밀번호가 일치하지 않습니다';
+        error = t('auth.passwordMismatch');
         return;
       }
       if (password.length < 8) {
-        error = '비밀번호는 8자 이상이어야 합니다';
+        error = t('auth.passwordMin');
         return;
       }
 
@@ -32,13 +33,12 @@
       submitting = false;
 
       if (res.success) {
-        // Auto-login after registration
         const loginRes = await api.auth.login(username, password);
         if (loginRes.success && loginRes.data) {
           onLogin(loginRes.data);
         }
       } else {
-        error = res.error || '회원가입 실패';
+        error = res.error || t('auth.registerFailed');
       }
     } else {
       submitting = true;
@@ -48,7 +48,7 @@
       if (res.success && res.data) {
         onLogin(res.data);
       } else {
-        error = res.error || '로그인 실패';
+        error = res.error || t('auth.loginFailed');
       }
     }
   }
@@ -57,17 +57,17 @@
 <div class="login-container">
   <div class="login-card">
     <h1>🌳 HITS</h1>
-    <p class="subtitle">Hybrid Intel Trace System</p>
+    <p class="subtitle">{t('app.subtitle')}</p>
 
     <form onsubmit={handleSubmit}>
       <div class="form-group">
-        <label for="username">사용자명</label>
+        <label for="username">{t('auth.username')}</label>
         <input
           id="username"
           class="input"
           type="text"
           bind:value={username}
-          placeholder="사용자명 입력"
+          placeholder={t('auth.username')}
           autocomplete="username"
           required
           minlength={3}
@@ -77,13 +77,13 @@
       </div>
 
       <div class="form-group">
-        <label for="password">비밀번호</label>
+        <label for="password">{t('auth.password')}</label>
         <input
           id="password"
           class="input"
           type="password"
           bind:value={password}
-          placeholder="비밀번호 입력"
+          placeholder={t('auth.password')}
           autocomplete={isRegister ? 'new-password' : 'current-password'}
           required
           minlength={8}
@@ -93,13 +93,13 @@
 
       {#if isRegister}
         <div class="form-group">
-          <label for="confirm">비밀번호 확인</label>
+          <label for="confirm">{t('auth.confirmPassword')}</label>
           <input
             id="confirm"
             class="input"
             type="password"
             bind:value={confirmPassword}
-            placeholder="비밀번호 재입력"
+            placeholder={t('auth.confirmPassword')}
             autocomplete="new-password"
             required
             minlength={8}
@@ -120,9 +120,9 @@
       >
         {#if submitting}
           <div class="spinner" style="width:14px;height:14px;"></div>
-          처리 중...
+          {t('auth.processing')}
         {:else}
-          {isRegister ? '계정 생성' : '로그인'}
+          {isRegister ? t('auth.register') : t('auth.login')}
         {/if}
       </button>
     </form>
@@ -130,21 +130,21 @@
     {#if initialized}
       <p style="text-align:center; margin-top:16px; font-size:12px;">
         {#if isRegister}
-          이미 계정이 있으신가요?
+          {t('auth.hasAccount')}
           <button
             style="background:none;border:none;color:var(--accent-secondary);cursor:pointer;font-size:12px;font-family:var(--font-sans);"
             onclick={() => { isRegister = false; error = ''; }}
-          >로그인</button>
+          >{t('auth.login')}</button>
         {:else}
           <button
             style="background:none;border:none;color:var(--accent-secondary);cursor:pointer;font-size:12px;font-family:var(--font-sans);"
             onclick={() => { isRegister = true; error = ''; }}
-          >새 계정 만들기</button>
+          >{t('auth.noAccount')}</button>
         {/if}
       </p>
     {:else}
       <p style="text-align:center; margin-top:16px; font-size:12px; color:var(--text-muted);">
-        첫 번째 계정이 관리자로 설정됩니다
+        {t('auth.firstAccount')}
       </p>
     {/if}
   </div>

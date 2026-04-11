@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { api } from '../lib/api';
   import { categoriesStore } from '../lib/stores';
+  import { t } from '../lib/i18n';
 
   let categories = $state<{ name: string; icon: string; items: any[] }[]>([]);
   let expandedCategories = $state<Set<string>>(new Set());
@@ -23,9 +24,9 @@
   let formSubmitting = $state(false);
 
   const LAYER_LABELS: Record<string, string> = {
-    why: 'WHY (의도)',
-    how: 'HOW (방법)',
-    what: 'WHAT (실행)',
+    why: t('knowledge.layerWhy'),
+    how: t('knowledge.layerHow'),
+    what: t('knowledge.layerWhat'),
   };
 
   onMount(async () => {
@@ -107,7 +108,7 @@
       editingCategory = null;
       await loadCategories();
     } else {
-      formError = res.error || '저장 실패';
+      formError = res.error || 'Save failed';
     }
   }
 
@@ -142,18 +143,18 @@
       editingNodeIndex = null;
       await loadCategories();
     } else {
-      formError = res.error || '저장 실패';
+      formError = res.error || 'Save failed';
     }
   }
 
   async function deleteCategory(name: string) {
-    if (!confirm(`"${name}" 카테고리와 모든 노드를 삭제하시겠습니까?`)) return;
+    if (!confirm(t('knowledge.confirmDeleteCategory'))) return;
     await api.knowledge.deleteCategory(name);
     await loadCategories();
   }
 
   async function deleteNode(category: string, index: number) {
-    if (!confirm('이 노드를 삭제하시겠습니까?')) return;
+    if (!confirm(t('knowledge.confirmDeleteNode'))) return;
     await api.knowledge.deleteNode(category, index);
     await loadCategories();
   }
@@ -161,9 +162,9 @@
 
 <div>
   <div class="flex items-center" style="margin-bottom:16px;">
-    <h2 style="font-size:16px; flex:1;">📋 지식 트리</h2>
+    <h2 style="font-size:16px; flex:1;">📋 {t('knowledge.title')}</h2>
     <button class="btn btn-primary btn-sm" onclick={openAddCategory}>
-      + 카테고리
+      + {t('knowledge.addCategory')}
     </button>
   </div>
 
@@ -172,8 +173,8 @@
   {:else if categories.length === 0}
     <div class="empty-state">
       <div class="icon">📋</div>
-      <div class="message">카테고리가 없습니다</div>
-      <button class="btn btn-primary btn-sm" onclick={openAddCategory}>카테고리 만들기</button>
+      <div class="message">{t('knowledge.noCategories')}</div>
+      <button class="btn btn-primary btn-sm" onclick={openAddCategory}>{t('knowledge.createCategory')}</button>
     </div>
   {:else}
     {#each categories as cat}
@@ -187,19 +188,19 @@
               class="btn-icon"
               style="width:24px;height:24px;font-size:12px;"
               onclick={(e) => { e.stopPropagation(); openAddNode(cat.name); }}
-              title="노드 추가"
+              title={t('knowledge.newNode')}
             >+</button>
             <button
               class="btn-icon"
               style="width:24px;height:24px;font-size:10px;"
               onclick={(e) => { e.stopPropagation(); openEditCategory(cat); }}
-              title="카테고리 편집"
+              title={t('knowledge.editCategory')}
             >✏</button>
             <button
               class="btn-icon"
               style="width:24px;height:24px;font-size:10px;color:var(--danger);"
               onclick={(e) => { e.stopPropagation(); deleteCategory(cat.name); }}
-              title="카테고리 삭제"
+              title={t('delete')}
             >✕</button>
           </div>
           <span style="font-size:10px;color:var(--text-muted);">
@@ -220,13 +221,13 @@
                 class="btn-icon"
                 style="width:20px;height:20px;font-size:10px;opacity:0.5;"
                 onclick={() => openEditNode(cat.name, i, node)}
-                title="편집"
+                title={t('edit')}
               >✏</button>
               <button
                 class="btn-icon"
                 style="width:20px;height:20px;font-size:10px;opacity:0.5;color:var(--danger);"
                 onclick={() => deleteNode(cat.name, i)}
-                title="삭제"
+                title={t('delete')}
               >✕</button>
             </div>
           {/each}
@@ -240,22 +241,22 @@
 {#if showCategoryModal}
   <div class="modal-overlay" onclick={() => showCategoryModal = false}>
     <div class="modal" onclick={(e) => e.stopPropagation()}>
-      <h2>{editingCategory ? '카테고리 편집' : '새 카테고리'}</h2>
+      <h2>{editingCategory ? t('knowledge.editCategory') : t('knowledge.createCategory')}</h2>
       <div class="form-group">
-        <label>이름</label>
-        <input class="input" bind:value={formCategoryName} placeholder="카테고리 이름" />
+        <label>{t('knowledge.categoryName')}</label>
+        <input class="input" bind:value={formCategoryName} placeholder={t('knowledge.categoryName')} />
       </div>
       <div class="form-group">
-        <label>아이콘</label>
+        <label>{t('knowledge.categoryIcon')}</label>
         <input class="input" bind:value={formCategoryIcon} placeholder="📁" style="width:80px;" />
       </div>
       {#if formError}
         <div class="error-msg">{formError}</div>
       {/if}
       <div class="flex gap-sm" style="margin-top:16px; justify-content:flex-end;">
-        <button class="btn btn-secondary" onclick={() => showCategoryModal = false}>취소</button>
+        <button class="btn btn-secondary" onclick={() => showCategoryModal = false}>{t('cancel')}</button>
         <button class="btn btn-primary" onclick={saveCategory} disabled={formSubmitting}>
-          {formSubmitting ? '저장 중...' : '저장'}
+          {formSubmitting ? t('knowledge.saving') : t('save')}
         </button>
       </div>
     </div>
@@ -266,43 +267,43 @@
 {#if showNodeModal}
   <div class="modal-overlay" onclick={() => showNodeModal = false}>
     <div class="modal" onclick={(e) => e.stopPropagation()}>
-      <h2>{editingNodeIndex !== null ? '노드 편집' : '새 노드'}</h2>
+      <h2>{editingNodeIndex !== null ? t('knowledge.editNode') : t('knowledge.newNode')}</h2>
       <div class="form-group">
-        <label>이름</label>
-        <input class="input" bind:value={formNodeName} placeholder="노드 이름" />
+        <label>{t('knowledge.nodeName')}</label>
+        <input class="input" bind:value={formNodeName} placeholder={t('knowledge.nodeName')} />
       </div>
       <div class="form-group">
-        <label>계층 (Layer)</label>
+        <label>{t('knowledge.nodeLayer')}</label>
         <select class="input" bind:value={formNodeLayer}>
-          <option value="why">WHY (의도/목적)</option>
-          <option value="how">HOW (논리/방법)</option>
-          <option value="what">WHAT (실행/작업)</option>
+          <option value="why">{t('knowledge.layerWhy')}</option>
+          <option value="how">{t('knowledge.layerHow')}</option>
+          <option value="what">{t('knowledge.layerWhat')}</option>
         </select>
       </div>
       <div class="form-group">
-        <label>실행 유형</label>
+        <label>{t('knowledge.nodeType')}</label>
         <select class="input" bind:value={formNodeType}>
-          <option value="url">URL</option>
-          <option value="shell">Shell 명령</option>
+          <option value="url">{t('knowledge.typeUrl')}</option>
+          <option value="shell">{t('knowledge.typeShell')}</option>
         </select>
       </div>
       <div class="form-group">
-        <label>실행 내용</label>
-        <input class="input" bind:value={formNodeAction} placeholder="https://... 또는 명령어" />
+        <label>{t('knowledge.nodeAction')}</label>
+        <input class="input" bind:value={formNodeAction} placeholder="https://... " />
       </div>
       <div class="form-group">
         <label style="display:flex;align-items:center;gap:8px;">
           <input type="checkbox" bind:checked={formNodeNegative} />
-          실패 경로 (Negative Path)
+          {t('knowledge.negativePath')}
         </label>
       </div>
       {#if formError}
         <div class="error-msg">{formError}</div>
       {/if}
       <div class="flex gap-sm" style="margin-top:16px; justify-content:flex-end;">
-        <button class="btn btn-secondary" onclick={() => showNodeModal = false}>취소</button>
+        <button class="btn btn-secondary" onclick={() => showNodeModal = false}>{t('cancel')}</button>
         <button class="btn btn-primary" onclick={saveNode} disabled={formSubmitting}>
-          {formSubmitting ? '저장 중...' : '저장'}
+          {formSubmitting ? t('knowledge.saving') : t('save')}
         </button>
       </div>
     </div>
