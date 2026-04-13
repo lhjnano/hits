@@ -116,39 +116,41 @@ That's it. No database required — HITS uses file-based storage at `~/.hits/dat
 
 HITS includes an MCP server so your AI can read and write handover data directly. No need to clone the repo — it works right out of the npm package.
 
-#### Register with OpenCode (`~/.config/opencode/opencode.json`)
-
-```json
-{
-  "mcp": {
-    "hits": {
-      "type": "local",
-      "command": ["npx", "hits-mcp"]
-    }
-  }
-}
-```
-
 #### Register with Claude Code
 
 ```bash
-claude mcp add hits -- npx hits-mcp
+claude mcp add hits -- npx -y -p @purpleraven/hits hits-mcp
 ```
 
-#### Register with Any MCP Client
+Or add to `.mcp.json` in your project root:
 
 ```json
 {
   "mcpServers": {
     "hits": {
       "command": "npx",
-      "args": ["hits-mcp"]
+      "args": ["-y", "-p", "@purpleraven/hits", "hits-mcp"]
     }
   }
 }
 ```
 
-> **How it works:** `npx hits-mcp` auto-detects Python, creates a venv inside the npm package, installs dependencies, and spawns the MCP server over stdio — all automatically on first run.
+#### Register with OpenCode (`~/.config/opencode/mcp.json`)
+
+```json
+{
+  "mcpServers": {
+    "hits": {
+      "command": "npx",
+      "args": ["-y", "-p", "@purpleraven/hits", "hits-mcp"]
+    }
+  }
+}
+```
+
+> **Important:** You must use `npx -p @purpleraven/hits hits-mcp` (specify the package), not just `npx hits-mcp`. The `hits-mcp` binary is inside the `@purpleraven/hits` package.
+>
+> **How it works:** `npx` downloads the package, auto-detects Python, creates a venv, installs dependencies, and spawns the MCP server over stdio — all automatically on first run.
 
 #### 5 MCP Tools
 
