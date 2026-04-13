@@ -21,7 +21,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
 
-from .routes import health, work_log, node, handover, auth, knowledge
+from .routes import health, work_log, node, handover, auth, knowledge, signal
 from ..auth.middleware import SecurityMiddleware
 
 
@@ -108,6 +108,7 @@ class APIServer:
         app.include_router(node.router, prefix="/api", tags=["node"])
         app.include_router(handover.router, prefix="/api", tags=["handover"])
         app.include_router(knowledge.router, prefix="/api", tags=["knowledge"])
+        app.include_router(signal.router, prefix="/api", tags=["signal"])
 
         # --- Static Files (Web UI) ---
         static_dir = Path(__file__).parent.parent.parent / "hits_web" / "dist"

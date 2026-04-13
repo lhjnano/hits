@@ -20,9 +20,9 @@ def main():
     server = APIServer(port=args.port, dev_mode=args.dev)
     app = server.create_app()
 
-    print(f"HITS Web Server starting on http://127.0.0.1:{args.port}")
+    print(f"HITS Web Server starting on http://127.0.0.1:{args.port}", flush=True)
     if args.dev:
-        print("Development mode: CSP relaxed, CORS enabled for Vite")
+        print("Development mode: CSP relaxed, CORS enabled for Vite", flush=True)
 
     uvicorn.run(
         app,

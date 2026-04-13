@@ -124,7 +124,7 @@ function startBackend(dev) {
     backendProc.stdout.on('data', (data) => {
       const msg = data.toString().trim();
       if (dev && msg) console.log(`[api] ${msg}`);
-      if (!started && (msg.includes('Uvicorn running') || msg.includes('Application startup complete') || msg.includes('Started server'))) {
+      if (!started && (msg.includes('Uvicorn running') || msg.includes('Application startup complete') || msg.includes('Started server') || msg.includes('HITS Web Server starting'))) {
         started = true;
         resolve();
       }
@@ -133,7 +133,7 @@ function startBackend(dev) {
     backendProc.stderr.on('data', (data) => {
       const msg = data.toString().trim();
       if (dev && msg) console.error(`[api] ${msg}`);
-      if (!started && (msg.includes('Uvicorn running') || msg.includes('Application startup complete') || msg.includes('Started server'))) {
+      if (!started && (msg.includes('Uvicorn running') || msg.includes('Application startup complete') || msg.includes('Started server') || msg.includes('HITS Web Server starting'))) {
         started = true;
         resolve();
       }
@@ -194,9 +194,12 @@ export async function startServer({ port, dev = false, setupOnly = false }) {
   const app = express();
 
   // API proxy → Python FastAPI
+  // http-proxy-middleware v3: app.use('/api', ...) strips /api prefix.
+  // We need to add it back since FastAPI routes are registered with /api prefix.
   app.use('/api', createProxyMiddleware({
     target: `http://127.0.0.1:${API_PORT}`,
     changeOrigin: true,
+    pathRewrite: (path) => '/api' + path,
     logger: dev ? console : undefined,
   }));
 

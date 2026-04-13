@@ -22,13 +22,12 @@ from typing import Optional
 
 # Argon2id - fallback to bcrypt if not available
 try:
-    from argon2 import PasswordHasher
+    from argon2 import PasswordHasher as _Argon2PasswordHasher
     from argon2.exceptions import VerifyMismatchError
 
     _HAS_ARGON2 = True
 except ImportError:
-    import hashlib as _hl
-
+    _Argon2PasswordHasher = None  # type: ignore
     _HAS_ARGON2 = False
 
 # JWT - use python-jose if available, else pure Python HMAC-based tokens
@@ -49,7 +48,7 @@ class PasswordHasher:
         self._load_pepper()
 
         if _HAS_ARGON2:
-            self._argon2 = PasswordHasher(
+            self._argon2 = _Argon2PasswordHasher(
                 time_cost=3,        # iterations
                 memory_cost=65536,  # 64 MB
                 parallelism=1,

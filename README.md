@@ -323,6 +323,31 @@ Environment:
 | PUT | `/api/knowledge/category/{name}/nodes/{idx}` | Update node |
 | DELETE | `/api/knowledge/category/{name}/nodes/{idx}` | Delete node |
 
+### Signals (Cross-Tool Handover)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/signals/send` | Send a handover signal to another AI tool |
+| GET | `/api/signals/check` | Check pending signals (filter by recipient, project) |
+| POST | `/api/signals/consume` | Consume (acknowledge) a signal |
+| GET | `/api/signals/pending` | List all pending signals |
+| DELETE | `/api/signals/{signal_id}` | Delete a signal |
+
+```bash
+# Send signal (Claude → OpenCode)
+curl -X POST http://localhost:8765/api/signals/send \
+  -H "Content-Type: application/json" \
+  -d '{"sender":"claude","recipient":"opencode","summary":"JWT auth done","pending_items":["rate limiting"]}'
+
+# Check pending signals
+curl "http://localhost:8765/api/signals/check?recipient=opencode"
+
+# Consume signal
+curl -X POST http://localhost:8765/api/signals/consume \
+  -H "Content-Type: application/json" \
+  -d '{"signal_id":"sig_abc12345","consumed_by":"opencode"}'
+```
+
 ## Cross-Tool Handover Signals
 
 HITS provides a file-based signal system for real-time handover between AI tools (Claude ↔ OpenCode ↔ Cursor). No running server required — signals are just JSON files in `~/.hits/data/signals/`.
