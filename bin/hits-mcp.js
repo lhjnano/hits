@@ -24,7 +24,7 @@ import { fileURLToPath } from 'node:url';
 import { platform } from 'node:os';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const ROOT = __dirname;
+const ROOT = join(__dirname, '..');
 const isWin = platform() === 'win32';
 
 // ─── Python Detection (same logic as server.js) ────────────────
