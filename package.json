@@ -28,6 +28,7 @@
   "files": [
     "bin/",
     "server.js",
+    "hooks/",
     "hits_core/**/*.py",
     "hits_core/**/__init__.py",
     "!hits_core/**/__pycache__",

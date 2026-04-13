@@ -58,6 +58,7 @@ ehthumbs.db
 !.env.example
 credentials.json
 secrets.yaml
+.npmrc
 
 # Logs
 *.log

@@ -152,7 +152,7 @@ Or add to `.mcp.json` in your project root:
 >
 > **How it works:** `npx` downloads the package, auto-detects Python, creates a venv, installs dependencies, and spawns the MCP server over stdio — all automatically on first run.
 
-#### 5 MCP Tools
+#### 8 MCP Tools
 
 | Tool | What It Does |
 |------|-------------|
@@ -161,6 +161,9 @@ Or add to `.mcp.json` in your project root:
 | `hits_search_works` | Search past work by keyword |
 | `hits_list_projects` | List all projects with recorded work |
 | `hits_get_recent` | Get the most recent work entries |
+| `hits_signal_send` | Send a handover signal to another AI tool (Claude↔OpenCode) |
+| `hits_signal_check` | Check for pending signals addressed to you |
+| `hits_signal_consume` | Acknowledge and archive a signal |
 
 #### Example AI Workflow
 
@@ -319,6 +322,145 @@ Environment:
 | POST | `/api/knowledge/category/{name}/nodes` | Add node to category |
 | PUT | `/api/knowledge/category/{name}/nodes/{idx}` | Update node |
 | DELETE | `/api/knowledge/category/{name}/nodes/{idx}` | Delete node |
+
+## Cross-Tool Handover Signals
+
+HITS provides a file-based signal system for real-time handover between AI tools (Claude ↔ OpenCode ↔ Cursor). No running server required — signals are just JSON files in `~/.hits/data/signals/`.
+
+### How It Works
+
+```
+┌─────────────────┐     ~/.hits/data/signals/pending/     ┌─────────────────┐
+│   Claude Code   │  ──── claude_to_opencode.json ────►  │    OpenCode     │
+│                 │                                       │                 │
+│  hits_signal_   │                                       │  hook detects   │
+│  send()         │                                       │  signal file    │
+│                 │                                       │  hits_signal_   │
+│                 │  ◄──── opencode_to_claude.json ─────  │  check()        │
+└─────────────────┘                                       └─────────────────┘
+```
+
+### MCP Signal Tools
+
+```python
+# 1. 세션 종료 시 시그널 전송 (Claude → OpenCode)
+hits_signal_send(
+    sender="claude",
+    recipient="opencode",        # or "any" for broadcast
+    summary="JWT auth 구현 완료, rate limiting 남음",
+    pending_items=["rate limiting 추가", "CORS 설정"],
+    priority="high"              # normal | high | urgent
+)
+
+# 2. 세션 시작 시 시그널 확인
+hits_signal_check(recipient="opencode")
+# → 🟡 [04/14 14:30] claude → opencode
+#    요약: JWT auth 구현 완료, rate limiting 남음
+#    미완료: rate limiting 추가, CORS 설정
+
+# 3. 시그널 소진 (확인 완료)
+hits_signal_consume(signal_id="sig_abc12345", consumed_by="opencode")
+```
+
+### Hook Setup (Automatic Detection)
+
+Instead of manually calling `hits_signal_check`, configure hooks so signals are **automatically injected** when a session starts.
+
+#### Claude Code — SessionStart Hook
+
+`~/.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "bash <(npx -y -p @purpleraven/hits cat hooks/claude_signal_watcher.sh)"
+      }
+    ]
+  }
+}
+```
+
+Or install the hook script locally:
+
+```bash
+mkdir -p ~/.claude/hooks
+npx -y -p @purpleraven/hits cat hooks/claude_signal_watcher.sh > ~/.claude/hooks/hits_signal_watcher.sh
+chmod +x ~/.claude/hooks/hits_signal_watcher.sh
+```
+
+Then reference it:
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "~/.claude/hooks/hits_signal_watcher.sh"
+      }
+    ]
+  }
+}
+```
+
+When Claude starts a session, it will see:
+
+```
+📬 HITS 인수인계 시그널 감지!
+  보낸이: opencode
+  유형: session_end
+  우선순위: high
+  요약: LVM DR 스크립트 디버깅 완료
+  미완료 항목:
+    - 원격 백업 테스트
+    - CronJob 매니페스트 작성
+  시그널 ID: sig_fb5bd38c
+
+👉 hits_get_handover()로 전체 컨텍스트를 확인하고,
+👉 hits_signal_consume(signal_id="sig_fb5bd38c", consumed_by="claude")로 시그널을 소진하세요.
+```
+
+#### OpenCode — SessionStart Hook
+
+`~/.config/opencode/opencode.json` or project `.opencode/hooks/`:
+
+```bash
+mkdir -p ~/.opencode/hooks
+npx -y -p @purpleraven/hits cat hooks/opencode_signal_watcher.sh > ~/.opencode/hooks/hits_signal_watcher.sh
+chmod +x ~/.opencode/hooks/hits_signal_watcher.sh
+```
+
+Configure as a startup hook in your OpenCode settings.
+
+### Signal Directory Structure
+
+```
+~/.hits/data/signals/
+├── pending/                              ← Active signals
+│   └── claude_to_opencode_20260414_143022_sig_fb5bd38c.json
+└── consumed/                             ← Archived (auto-cleaned after 72h)
+    └── opencode_to_claude_20260414_130000_sig_a1b2c3d4.json
+```
+
+### Full Handover Flow
+
+```
+1. Claude 세션 종료:
+   → hits_record_work()       # 작업 기록
+   → hits_signal_send()       # OpenCode에 시그널 전송
+
+2. OpenCode 세션 시작:
+   → hook가 자동 감지 (stderr 주입)
+   → hits_get_handover()      # 전체 컨텍스트 조회
+   → hits_signal_consume()    # 시그널 소진
+
+3. OpenCode 세션 종료:
+   → hits_record_work()
+   → hits_signal_send(sender="opencode", recipient="claude")
+```
 
 ## Troubleshooting
 

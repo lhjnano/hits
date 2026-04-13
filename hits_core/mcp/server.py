@@ -23,6 +23,7 @@ if _project_root not in sys.path:
 from hits_core.storage.file_store import FileStorage
 from hits_core.models.work_log import WorkLog, WorkLogSource, WorkLogResultType
 from hits_core.service.handover_service import HandoverService
+from hits_core.service.signal_service import SignalService
 
 
 def _detect_project_path() -> str:
@@ -189,6 +190,108 @@ class HITSMCPServer:
                 },
             },
         },
+        # ─── Signal Tools ──────────────────────────────────────
+        {
+            "name": "hits_signal_send",
+            "description": (
+                "Send a handover signal to another AI tool. "
+                "Call this when your session is ending and you want to notify "
+                "the next AI tool (e.g., Claude→OpenCode or OpenCode→Claude). "
+                "Creates a signal file in ~/.hits/signals/pending/ that the "
+                "recipient tool can detect via its hook or MCP call."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "sender": {
+                        "type": "string",
+                        "description": "Your tool name: 'claude', 'opencode', 'cursor', etc.",
+                    },
+                    "recipient": {
+                        "type": "string",
+                        "description": "Target tool name, or 'any' for broadcast (default: 'any')",
+                    },
+                    "signal_type": {
+                        "type": "string",
+                        "description": "Signal type: 'session_end', 'task_ready', 'question', 'urgent' (default: 'session_end')",
+                    },
+                    "project_path": {
+                        "type": "string",
+                        "description": "Project path (default: auto-detect from CWD)",
+                    },
+                    "summary": {
+                        "type": "string",
+                        "description": "Brief summary of what was done / needs to be done",
+                    },
+                    "context": {
+                        "type": "string",
+                        "description": "Detailed context for the next session",
+                    },
+                    "pending_items": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of unfinished tasks",
+                    },
+                    "tags": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Tags for categorization",
+                    },
+                    "priority": {
+                        "type": "string",
+                        "description": "Priority: 'normal', 'high', 'urgent' (default: 'normal')",
+                    },
+                },
+                "required": ["sender", "summary"],
+            },
+        },
+        {
+            "name": "hits_signal_check",
+            "description": (
+                "Check for pending handover signals addressed to you. "
+                "Call this at session start to see if another AI tool left work for you. "
+                "Returns a list of pending signals from ~/.hits/signals/pending/."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "recipient": {
+                        "type": "string",
+                        "description": "Your tool name to filter signals (default: 'any' = all pending)",
+                    },
+                    "project_path": {
+                        "type": "string",
+                        "description": "Filter by project path (default: auto-detect from CWD)",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Max results (default: 10)",
+                    },
+                },
+            },
+        },
+        {
+            "name": "hits_signal_consume",
+            "description": (
+                "Mark a signal as consumed (acknowledge and archive). "
+                "Call this after reading and acting on a signal. "
+                "Moves the signal from pending/ to consumed/."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "signal_id": {
+                        "type": "string",
+                        "description": "The signal ID to consume (e.g., 'sig_abc12345')",
+                    },
+                    "consumed_by": {
+                        "type": "string",
+                        "description": "Your tool name: 'claude', 'opencode', etc.",
+                    },
+                },
+                "required": ["signal_id", "consumed_by"],
+            },
+        },
     ]
 
     SERVER_INFO = {
@@ -204,6 +307,7 @@ class HITSMCPServer:
         # Use centralized ~/.hits/data/ by default (same as FileStorage)
         self.storage = FileStorage(base_path=data_path)
         self.handover_service = HandoverService(storage=self.storage)
+        self.signal_service = SignalService(data_path=data_path)
 
     async def handle_initialize(self, params: dict, id_val: Any) -> str:
         result = {
@@ -231,6 +335,12 @@ class HITSMCPServer:
                 result = await self._tool_list_projects(arguments)
             elif tool_name == "hits_get_recent":
                 result = await self._tool_get_recent(arguments)
+            elif tool_name == "hits_signal_send":
+                result = await self._tool_signal_send(arguments)
+            elif tool_name == "hits_signal_check":
+                result = await self._tool_signal_check(arguments)
+            elif tool_name == "hits_signal_consume":
+                result = await self._tool_signal_consume(arguments)
             else:
                 return _json_rpc_response(
                     id_val,
@@ -356,6 +466,84 @@ class HITSMCPServer:
             lines.append(f"[{ts}] ({log.performed_by}) {log.request_text or log.context}")
 
         return _tool_result("\n".join(lines))
+
+    # ─── Signal Tools ──────────────────────────────────────────
+
+    async def _tool_signal_send(self, args: dict) -> list[dict]:
+        sender = args.get("sender", "unknown")
+        project_path = args.get("project_path") or _detect_project_path()
+
+        signal = await self.signal_service.send_signal(
+            sender=sender,
+            recipient=args.get("recipient", "any"),
+            signal_type=args.get("signal_type", "session_end"),
+            project_path=str(Path(project_path).resolve()),
+            summary=args.get("summary", ""),
+            context=args.get("context"),
+            pending_items=args.get("pending_items", []),
+            tags=args.get("tags", []),
+            priority=args.get("priority", "normal"),
+        )
+
+        return _tool_result(
+            f"🚨 시그널 전송 완료\n"
+            f"  ID: {signal.id}\n"
+            f"  {signal.sender} → {signal.recipient}\n"
+            f"  유형: {signal.signal_type}\n"
+            f"  우선순위: {signal.priority}\n"
+            f"  프로젝트: {signal.project_path}\n"
+            f"  요약: {signal.summary}\n"
+            f"\n상대방 AI는 hits_signal_check() 또는 훅 스크립트로 감지합니다."
+        )
+
+    async def _tool_signal_check(self, args: dict) -> list[dict]:
+        recipient = args.get("recipient", "any")
+        project_path = args.get("project_path") or _detect_project_path()
+        project_path = str(Path(project_path).resolve())
+        limit = args.get("limit", 10)
+
+        signals = await self.signal_service.check_signals(
+            recipient=recipient,
+            project_path=project_path,
+            limit=limit,
+        )
+
+        if not signals:
+            return _tool_result(f"대기 중인 시그널 없음 (recipient: {recipient}, project: {project_path})")
+
+        lines = [f"📬 대기 중인 시그널 ({len(signals)}개)\n"]
+        for sig in signals:
+            ts = sig.created_at.strftime("%m/%d %H:%M")
+            priority_icon = {"urgent": "🔴", "high": "🟡"}.get(sig.priority, "🟢")
+            lines.append(f"  {priority_icon} [{ts}] {sig.sender} → {sig.recipient}")
+            lines.append(f"     ID: {sig.id}")
+            lines.append(f"     유형: {sig.signal_type}")
+            lines.append(f"     요약: {sig.summary}")
+            if sig.pending_items:
+                lines.append(f"     미완료: {', '.join(sig.pending_items[:3])}")
+            lines.append("")
+
+        lines.append("hits_signal_consume(signal_id, consumed_by)로 확인 가능")
+        return _tool_result("\n".join(lines))
+
+    async def _tool_signal_consume(self, args: dict) -> list[dict]:
+        signal_id = args.get("signal_id", "")
+        consumed_by = args.get("consumed_by", "unknown")
+
+        signal = await self.signal_service.consume_signal(
+            signal_id=signal_id,
+            consumed_by=consumed_by,
+        )
+
+        if not signal:
+            return _tool_result(f"❌ 시그널을 찾을 수 없음: {signal_id}")
+
+        return _tool_result(
+            f"✅ 시그널 확인 완료\n"
+            f"  ID: {signal.id}\n"
+            f"  {signal.sender} → {consumed_by}\n"
+            f"  상태: consumed"
+        )
 
     async def handle_request(self, request: dict) -> Optional[str]:
         """Handle a single JSON-RPC request."""

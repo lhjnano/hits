@@ -4,6 +4,7 @@ from .tree import KnowledgeTree
 from .node import Node, NodeType, NodeLayer
 from .workflow import Workflow, WorkflowStep
 from .work_log import WorkLog, WorkLogSource, WorkLogResultType
+from .signal import HandoverSignal, SignalStatus, SignalType
 
 __all__ = [
     "KnowledgeTree",
@@ -15,4 +16,7 @@ __all__ = [
     "WorkLog",
     "WorkLogSource",
     "WorkLogResultType",
+    "HandoverSignal",
+    "SignalStatus",
+    "SignalType",
 ]

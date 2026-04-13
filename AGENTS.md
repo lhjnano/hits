@@ -79,6 +79,34 @@ hits_list_projects  → List projects
 hits_get_recent     → Get recent work
 ```
 
+### Cross-Tool Signal Tools
+
+HITS provides a file-based signal system for real-time handover between AI tools. Signals are stored at `~/.hits/data/signals/pending/` as JSON files.
+
+```
+hits_signal_send    → Send a handover signal to another AI tool
+hits_signal_check   → Check for pending signals addressed to you
+hits_signal_consume → Acknowledge and archive a signal
+```
+
+**Session End Flow (sender):**
+```
+1. hits_record_work()                          # 작업 기록
+2. hits_signal_send(sender="claude", recipient="opencode", summary="...", pending_items=[...])
+```
+
+**Session Start Flow (receiver):**
+```
+1. hits_signal_check(recipient="opencode")     # 대기 중인 시그널 확인
+2. hits_get_handover()                         # 전체 컨텍스트 조회
+3. hits_signal_consume(signal_id="...", consumed_by="opencode")
+```
+
+**Hook-based Auto Detection:**
+- Claude Code: `hooks/claude_signal_watcher.sh` in SessionStart hook
+- OpenCode: `hooks/opencode_signal_watcher.sh` in startup hook
+- Hooks output signal content to stderr → auto-injected into AI session
+
 ### When to Record
 
 - At the end of a long work session with the user
@@ -94,6 +122,8 @@ hits_get_recent     → Get recent work
 | `~/.hits/data/work_logs/` | Work logs (JSON) |
 | `~/.hits/data/trees/` | Knowledge trees |
 | `~/.hits/data/workflows/` | Workflows |
+| `~/.hits/data/signals/pending/` | Pending handover signals |
+| `~/.hits/data/signals/consumed/` | Archived signals (auto-cleaned 72h) |
 | `~/.hits/.auth/` | Auth data (permissions 600/700) |
 | `HITS_DATA_PATH` env var | Override storage path |
 
@@ -188,11 +218,11 @@ hits_core/                    # Apache 2.0 - Backend
 │   ├── manager.py          # Argon2id + JWT + user management
 │   ├── middleware.py        # CSP, security headers
 │   └── dependencies.py     # FastAPI auth dependencies
-├── models/                 # Node, Tree, Workflow, WorkLog
+├── models/                 # Node, Tree, Workflow, WorkLog, HandoverSignal
 ├── storage/                # Redis, File storage (~/.hits/data/)
 ├── ai/                     # Compression, SLM filter, LLM client
 ├── platform/               # Cross-platform utilities
-├── service/                # TreeService, HandoverService, KnowledgeService
+├── service/                # TreeService, HandoverService, KnowledgeService, SignalService
 ├── api/                    # FastAPI server + routes
 │   └── routes/             # health, work_log, node, handover, auth, knowledge
 ├── collector/              # Git, Shell, AI session collectors
@@ -218,6 +248,10 @@ hits_web/                      # Apache 2.0 - Svelte 5 Web UI
 config/                       # Configuration files
 ├── settings.yaml          # Main config
 └── schema.json            # JSON schema
+
+hooks/                        # Cross-tool signal detection scripts
+├── claude_signal_watcher.sh  # Claude Code SessionStart hook
+└── opencode_signal_watcher.sh # OpenCode startup hook
 
 tests/                       # Test files
 └── core/                  # Core tests
