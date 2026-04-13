@@ -105,7 +105,7 @@ async function setupPython() {
 // ─── Python Backend Process ─────────────────────────────────────
 
 let backendProc = null;
-const API_PORT = 8765;
+const API_PORT = 18765;  // Internal Python backend port (different from user-facing port)
 
 function startBackend(dev) {
   return new Promise((resolve, reject) => {
