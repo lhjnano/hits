@@ -3,7 +3,7 @@ from typing import Optional, Any
 from uuid import uuid4
 
 from fastapi import APIRouter, Query, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from hits_core.storage.file_store import FileStorage
 from hits_core.models.work_log import WorkLog, WorkLogSource, WorkLogResultType
@@ -24,7 +24,7 @@ def get_storage() -> FileStorage:
 class WorkLogCreate(BaseModel):
     source: str
     performed_by: str
-    request_text: Optional[str] = None
+    request_text: str = Field(..., min_length=1, description="Summary of work performed")
     request_by: Optional[str] = None
     result_type: Optional[str] = "none"
     result_ref: Optional[str] = None

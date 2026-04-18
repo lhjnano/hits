@@ -8,26 +8,31 @@ Applies defense-in-depth headers and protections:
 - Referrer-Policy: Limits referrer information leakage
 - Permissions-Policy: Restricts browser features
 - X-XSS-Protection: Legacy XSS filter
+
+NOTE: Implemented as pure ASGI middleware (not BaseHTTPMiddleware) to avoid
+the response reconstruction bug where call_next() silently drops Set-Cookie
+headers from route handlers (e.g., logout's delete_cookie).
 """
 
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.requests import Request
-from starlette.responses import Response
 
+class SecurityMiddleware:
+    """Adds security headers to all responses via pure ASGI middleware.
 
-class SecurityMiddleware(BaseHTTPMiddleware):
-    """Adds security headers to all responses."""
+    Unlike BaseHTTPMiddleware, this does not reconstruct the response,
+    preserving all cookie modifications from route handlers.
+    """
 
     def __init__(self, app, dev_mode: bool = False):
-        super().__init__(app)
+        self.app = app
         self.dev_mode = dev_mode
 
-    async def dispatch(self, request: Request, call_next):
-        response: Response = await call_next(request)
+    async def __call__(self, scope, receive, send):
+        if scope["type"] not in ("http", "websocket"):
+            await self.app(scope, receive, send)
+            return
 
-        # Content-Security-Policy
+        # Build CSP string once
         if self.dev_mode:
-            # Dev: allow localhost connections for Vite HMR
             csp = (
                 "default-src 'self'; "
                 "script-src 'self' 'unsafe-inline' http://localhost:5173; "
@@ -40,7 +45,6 @@ class SecurityMiddleware(BaseHTTPMiddleware):
                 "form-action 'self'"
             )
         else:
-            # Production: strict CSP
             csp = (
                 "default-src 'self'; "
                 "script-src 'self'; "
@@ -53,17 +57,28 @@ class SecurityMiddleware(BaseHTTPMiddleware):
                 "form-action 'self'"
             )
 
-        response.headers["Content-Security-Policy"] = csp
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
-        response.headers["X-XSS-Protection"] = "1; mode=block"
-        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
-        response.headers["Cache-Control"] = "no-store"
+        # Prepare security headers as bytes
+        security_headers = [
+            (b"content-security-policy", csp.encode()),
+            (b"x-content-type-options", b"nosniff"),
+            (b"x-frame-options", b"DENY"),
+            (b"x-xss-protection", b"1; mode=block"),
+            (b"referrer-policy", b"strict-origin-when-cross-origin"),
+            (b"permissions-policy", b"camera=(), microphone=(), geolocation=()"),
+            (b"cache-control", b"no-store"),
+        ]
 
         if not self.dev_mode:
-            response.headers["Strict-Transport-Security"] = (
-                "max-age=63072000; includeSubDomains; preload"
-            )
+            security_headers.append((
+                b"strict-transport-security",
+                b"max-age=63072000; includeSubDomains; preload",
+            ))
 
-        return response
+        async def send_with_headers(message):
+            if message["type"] == "http.response.start":
+                headers = list(message.get("headers", []))
+                headers.extend(security_headers)
+                message["headers"] = headers
+            await send(message)
+
+        await self.app(scope, receive, send_with_headers)

@@ -54,13 +54,6 @@ async def get_handover(
     """
     service = get_service()
 
-    # Validate path exists
-    if not Path(project_path).exists():
-        return APIResponse(
-            success=False,
-            error=f"Project path does not exist: {project_path}",
-        )
-
     try:
         summary = await service.get_handover(
             project_path=project_path,

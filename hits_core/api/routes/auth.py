@@ -28,12 +28,12 @@ class RegisterRequest(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    username: str = Field(..., min_length=1)
-    password: str = Field(..., min_length=1)
+    username: str = Field(..., min_length=3, max_length=32, pattern=r"^[a-zA-Z0-9_-]+$")
+    password: str = Field(..., min_length=8, max_length=128)
 
 
 class ChangePasswordRequest(BaseModel):
-    old_password: str = Field(..., min_length=1)
+    old_password: str = Field(..., min_length=8, max_length=128)
     new_password: str = Field(..., min_length=8, max_length=128)
 
 
@@ -75,6 +75,9 @@ async def register(body: RegisterRequest, request: Request):
     if auth.user_exists(body.username):
         return APIResponse(success=False, error="Username already exists")
 
+    # Capture first-user flag BEFORE create_user() mutates state
+    is_first_user = not auth.has_any_user()
+
     success = auth.create_user(body.username, body.password)
     if not success:
         return APIResponse(success=False, error="Failed to create user")
@@ -83,7 +86,7 @@ async def register(body: RegisterRequest, request: Request):
         success=True,
         data={
             "username": body.username,
-            "role": "admin" if not auth.has_any_user() else "user",
+            "role": "admin" if is_first_user else "user",
             "message": "User created successfully",
         },
     )

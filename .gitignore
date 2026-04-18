@@ -32,6 +32,7 @@ env/
 htmlcov/
 .tox/
 .nox/
+tests/TEST_REPORT*
 
 # Mypy
 .mypy_cache/
@@ -45,6 +46,8 @@ htmlcov/
 data/work_logs/
 data/trees/
 data/workflows/
+data/*.json
+data/*.bak
 
 # OS files
 .DS_Store

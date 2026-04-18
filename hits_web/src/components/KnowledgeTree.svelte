@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { api } from '../lib/api';
   import { categoriesStore } from '../lib/stores';
-  import { t } from '../lib/i18n';
+  import { t, subscribeLocale, getLocale } from '../lib/i18n';
 
   let categories = $state<{ name: string; icon: string; items: any[] }[]>([]);
   let expandedCategories = $state<Set<string>>(new Set());
@@ -23,14 +23,22 @@
   let formError = $state('');
   let formSubmitting = $state(false);
 
-  const LAYER_LABELS: Record<string, string> = {
-    why: t('knowledge.layerWhy'),
-    how: t('knowledge.layerHow'),
-    what: t('knowledge.layerWhat'),
-  };
+  // Reactive layer labels — re-evaluates when locale changes
+  let localeTick = $state(0);
+  let LAYER_LABELS = $derived<{
+    why: string;
+    how: string;
+    what: string;
+  }>({
+    why: (localeTick, t('knowledge.layerWhy')),
+    how: (localeTick, t('knowledge.layerHow')),
+    what: (localeTick, t('knowledge.layerWhat')),
+  });
 
-  onMount(async () => {
-    await loadCategories();
+  onMount(() => {
+    const unsub = subscribeLocale(() => localeTick++);
+    loadCategories();
+    return unsub;
   });
 
   async function loadCategories() {

@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { api } from '../lib/api';
-  import { t, setLocale, getLocale, altLang, altLangLabel, type Locale } from '../lib/i18n';
-  import { authStore, projectsStore } from '../lib/stores';
+  import { t, setLocale, getLocale, altLang, altLangLabel, subscribeLocale, type Locale } from '../lib/i18n';
+  import { authStore, projectsStore, uiStore } from '../lib/stores';
   import KnowledgeTree from './KnowledgeTree.svelte';
   import Timeline from './Timeline.svelte';
   import HandoverPanel from './HandoverPanel.svelte';
@@ -20,11 +20,21 @@
   let activeTab: 'knowledge' | 'timeline' | 'handover' = $state('knowledge');
   let sidebarOpen = $state(true);
   let langLabel = $state(altLangLabel());
+  // Counter to force re-render when locale changes
+  let localeTick = $state(0);
 
-  onMount(async () => {
-    await loadProjects();
+  // Subscribe to locale changes so t() calls re-evaluate
+  onMount(() => {
+    const unsub = subscribeLocale(() => {
+      localeTick++;
+      langLabel = altLangLabel();
+    });
+    loadProjects();
     document.addEventListener('click', handleOutsideClick);
-    return () => document.removeEventListener('click', handleOutsideClick);
+    return () => {
+      unsub();
+      document.removeEventListener('click', handleOutsideClick);
+    };
   });
 
   async function loadProjects() {
@@ -48,9 +58,12 @@
   function toggleLang() {
     const next: Locale = altLang();
     setLocale(next);
-    langLabel = altLangLabel();
-    // Force re-render by re-assigning all t() calls
-    activeTab = activeTab; // trigger reactive update
+    // 새 언어가 즉시 모든 컴포넌트에 적용되도록 새로고침
+    window.location.reload();
+  }
+
+  function selectProject(path: string) {
+    uiStore.value = { ...uiStore.value, selectedProject: path };
   }
 
   async function handleChangePassword() {
@@ -79,15 +92,9 @@
   function switchTab(tab: 'knowledge' | 'timeline' | 'handover') {
     activeTab = tab;
   }
-
-  let projectLabel = $derived(
-    authStore.value.username
-      ? ''
-      : ''
-  );
 </script>
 
-<div class="app-layout">
+<div class="app-layout" data-locale-tick={localeTick}>
   <!-- Sidebar -->
   <div class="sidebar" class:collapsed={!sidebarOpen}>
     <div style="padding:16px; border-bottom: 1px solid var(--border-color);">
@@ -102,8 +109,11 @@
         {#each projectsStore.value as project}
           <div
             class="project-item"
+            class:selected={uiStore.value.selectedProject === project.project_path}
             role="button"
             tabindex="0"
+            onclick={() => selectProject(project.project_path)}
+            onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectProject(project.project_path); } }}
           >
             <span>📂</span>
             <span style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">

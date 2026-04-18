@@ -2,13 +2,14 @@
   import { onMount } from 'svelte';
   import { api } from '../lib/api';
   import { uiStore, workLogsStore } from '../lib/stores';
-  import { t } from '../lib/i18n';
+  import { t, getLocale, subscribeLocale } from '../lib/i18n';
 
   let logs = $state<any[]>([]);
   let loading = $state(true);
   let searchQuery = $state('');
   let showAddModal = $state(false);
   let editingLog: any | null = $state(null);
+  let expandedLogId: string | null = $state(null);
 
   // Form state
   let formSummary = $state('');
@@ -18,8 +19,25 @@
   let formError = $state('');
   let formSubmitting = $state(false);
 
-  onMount(async () => {
-    await loadLogs();
+  // Reactive locale tick for re-rendering on language change
+  let localeTick = $state(0);
+
+  // Track selected project to reload when it changes
+  let currentProject = $state(uiStore.value.selectedProject);
+
+  onMount(() => {
+    const unsub = subscribeLocale(() => localeTick++);
+    loadLogs();
+    return unsub;
+  });
+
+  // Watch for project selection changes and reload
+  $effect(() => {
+    const project = uiStore.value.selectedProject;
+    if (project !== currentProject) {
+      currentProject = project;
+      loadLogs();
+    }
   });
 
   async function loadLogs() {
@@ -54,6 +72,7 @@
   }
 
   function groupByDate(items: any[]): { label: string; items: any[] }[] {
+    void localeTick;
     const groups: Record<string, any[]> = {};
     const today = new Date().toISOString().slice(0, 10);
     const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
@@ -73,8 +92,10 @@
   }
 
   function formatTime(iso: string): string {
+    void localeTick;
     try {
-      return new Date(iso).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+      const locale = getLocale() === 'ko' ? 'ko-KR' : 'en-US';
+      return new Date(iso).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
     } catch {
       return '';
     }
@@ -98,6 +119,10 @@
     formTags = (log.tags || []).join(', ');
     formError = '';
     showAddModal = true;
+  }
+
+  function toggleExpand(id: string) {
+    expandedLogId = expandedLogId === id ? null : id;
   }
 
   async function saveLog() {
@@ -132,14 +157,16 @@
   async function deleteLog(id: string) {
     if (!confirm(t('timeline.confirmDelete'))) return;
     await api.workLogs.delete(id);
+    expandedLogId = null;
     await loadLogs();
   }
 
-  let grouped = $derived(groupByDate(logs));
+  let grouped = $derived((void localeTick, groupByDate(logs)));
   let projectLabel = $derived(
+    (void localeTick,
     uiStore.value.selectedProject
       ? uiStore.value.selectedProject.split('/').pop()
-      : t('timeline.allProjects')
+      : t('timeline.allProjects'))
   );
 </script>
 
@@ -171,7 +198,14 @@
     {#each grouped as group}
       <div class="timeline-date">{group.label}</div>
       {#each group.items as log}
-        <div class="timeline-item">
+        <div
+          class="timeline-item"
+          class:expanded={expandedLogId === log.id}
+          onclick={() => toggleExpand(log.id)}
+          role="button"
+          tabindex="0"
+          onkeydown={(e) => { if (e.key === 'Enter') toggleExpand(log.id); }}
+        >
           <div class="summary">{log.request_text || log.context || `(${t('empty.noData')})`}</div>
           <div class="meta">
             <span>{formatTime(log.performed_at)}</span>
@@ -191,10 +225,49 @@
               {/each}
             </div>
           {/if}
-          <div style="position:absolute;right:16px;top:50%;transform:translateY(-50%);display:flex;gap:2px;opacity:0.3;">
-            <button class="btn-icon" style="width:20px;height:20px;font-size:9px;" onclick={() => openEditLog(log)}>✏</button>
-            <button class="btn-icon" style="width:20px;height:20px;font-size:9px;color:var(--danger);" onclick={() => deleteLog(log.id)}>✕</button>
-          </div>
+
+          <!-- Expanded detail view -->
+          {#if expandedLogId === log.id}
+            <div class="timeline-detail" onclick={(e) => e.stopPropagation()}>
+              {#if log.context}
+                <div class="detail-section">
+                  <div class="detail-label">{t('timeline.context')}</div>
+                  <div class="detail-content">{log.context}</div>
+                </div>
+              {/if}
+              {#if log.result_data?.files_modified?.length}
+                <div class="detail-section">
+                  <div class="detail-label">Files</div>
+                  <div class="detail-files">
+                    {#each log.result_data.files_modified as file}
+                      <span class="detail-file">{file}</span>
+                    {/each}
+                  </div>
+                </div>
+              {/if}
+              {#if log.result_data?.commands_run?.length}
+                <div class="detail-section">
+                  <div class="detail-label">Commands</div>
+                  <div class="detail-content" style="font-family:var(--font-mono);font-size:12px;">
+                    {#each log.result_data.commands_run as cmd}
+                      <div>{cmd}</div>
+                    {/each}
+                  </div>
+                </div>
+              {/if}
+              <div class="detail-actions">
+                <button class="btn btn-secondary btn-sm" onclick={() => openEditLog(log)}>✏ {t('edit')}</button>
+                <button class="btn btn-secondary btn-sm" style="color:var(--danger);" onclick={() => deleteLog(log.id)}>✕ {t('delete')}</button>
+              </div>
+            </div>
+          {/if}
+
+          {#if expandedLogId !== log.id}
+            <div class="timeline-actions">
+              <button class="btn-icon" style="width:20px;height:20px;font-size:9px;" onclick={(e) => { e.stopPropagation(); openEditLog(log); }}>✏</button>
+              <button class="btn-icon" style="width:20px;height:20px;font-size:9px;color:var(--danger);" onclick={(e) => { e.stopPropagation(); deleteLog(log.id); }}>✕</button>
+            </div>
+          {/if}
         </div>
       {/each}
     {/each}
@@ -217,11 +290,11 @@
       <div class="form-group">
         <label>{t('timeline.performer')}</label>
         <select class="input" bind:value={formPerformedBy}>
-          <option value="manual">manual</option>
-          <option value="opencode">opencode</option>
-          <option value="claude">claude</option>
-          <option value="cursor">cursor</option>
-          <option value="copilot">copilot</option>
+          <option value="manual">{t('performer.manual')}</option>
+          <option value="opencode">{t('performer.opencode')}</option>
+          <option value="claude">{t('performer.claude')}</option>
+          <option value="cursor">{t('performer.cursor')}</option>
+          <option value="copilot">{t('performer.copilot')}</option>
         </select>
       </div>
       <div class="form-group">
@@ -240,3 +313,71 @@
     </div>
   </div>
 {/if}
+
+<style>
+  .timeline-item {
+    cursor: pointer;
+    position: relative;
+  }
+  .timeline-item:hover {
+    background: var(--bg-surface2);
+  }
+  .timeline-item.expanded {
+    background: var(--bg-surface2);
+    border-left: 3px solid var(--accent-primary);
+  }
+
+  .timeline-actions {
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    gap: 2px;
+    opacity: 0.3;
+  }
+  .timeline-item:hover .timeline-actions {
+    opacity: 1;
+  }
+
+  .timeline-detail {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-color);
+  }
+  .detail-section {
+    margin-bottom: 10px;
+  }
+  .detail-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+  }
+  .detail-content {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .detail-files {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .detail-file {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    background: var(--bg-surface);
+    padding: 2px 6px;
+    border-radius: 3px;
+    color: var(--text-muted);
+  }
+  .detail-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+  }
+</style>

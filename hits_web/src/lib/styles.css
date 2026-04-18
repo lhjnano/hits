@@ -399,7 +399,7 @@ select.input {
   background: var(--bg-surface2);
   color: var(--text-primary);
 }
-.project-item.active {
+.project-item.selected {
   background: var(--accent-primary);
   color: white;
 }

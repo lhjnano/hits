@@ -2,19 +2,33 @@
   import { onMount } from 'svelte';
   import { api } from '../lib/api';
   import { uiStore } from '../lib/stores';
-  import { t } from '../lib/i18n';
+  import { t, subscribeLocale, getLocale } from '../lib/i18n';
 
   let summary = $state<any>(null);
   let loading = $state(true);
   let error = $state('');
+  let localeTick = $state(0);
+  let currentProject = $state(uiStore.value.selectedProject);
   let projectLabel = $derived(
+    (void localeTick,
     uiStore.value.selectedProject
       ? uiStore.value.selectedProject.split('/').pop()
-      : null
+      : null)
   );
 
-  onMount(async () => {
-    await loadHandover();
+  onMount(() => {
+    const unsub = subscribeLocale(() => localeTick++);
+    loadHandover();
+    return unsub;
+  });
+
+  // Reload handover when project selection changes
+  $effect(() => {
+    const project = uiStore.value.selectedProject;
+    if (project !== currentProject) {
+      currentProject = project;
+      loadHandover();
+    }
   });
 
   async function loadHandover() {
@@ -41,7 +55,7 @@
     if (!summary) return;
     const text = buildPlainText();
     navigator.clipboard.writeText(text).then(() => {
-      alert('Copied to clipboard');
+      alert(t('copied'));
     });
   }
 
@@ -98,7 +112,7 @@
   }
 </script>
 
-<div>
+<div data-locale-tick={localeTick}>
   <div class="flex items-center" style="margin-bottom:16px;">
     <h2 style="font-size:16px; flex:1;">🔄 {t('handover.title')} — {projectLabel || t('handover.selectProject')}</h2>
     {#if summary}

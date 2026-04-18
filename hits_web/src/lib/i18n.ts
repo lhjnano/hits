@@ -1,6 +1,7 @@
 /**
  * Simple i18n system for HITS.
  * Stores language preference in localStorage.
+ * Uses a Svelte-writable-compatible store for reactivity.
  * Usage: import { t, locale } from '../lib/i18n';
  */
 
@@ -98,6 +99,13 @@ const translations: Record<Locale, Record<string, string>> = {
     'timeline.tags': 'Tags (comma separated)',
     'timeline.confirmDelete': 'Delete this work log?',
     'timeline.allProjects': 'All projects',
+
+    // Performers
+    'performer.manual': 'Manual',
+    'performer.opencode': 'OpenCode',
+    'performer.claude': 'Claude',
+    'performer.cursor': 'Cursor',
+    'performer.copilot': 'Copilot',
 
     // Handover
     'handover.title': 'Handover',
@@ -207,6 +215,13 @@ const translations: Record<Locale, Record<string, string>> = {
     'timeline.confirmDelete': '이 작업 기록을 삭제하시겠습니까?',
     'timeline.allProjects': '전체 프로젝트',
 
+    // Performers
+    'performer.manual': '수동',
+    'performer.opencode': 'OpenCode',
+    'performer.claude': 'Claude',
+    'performer.cursor': 'Cursor',
+    'performer.copilot': 'Copilot',
+
     // Handover
     'handover.title': '인수인계',
     'handover.selectProject': '좌측 사이드바에서 프로젝트를 선택하세요',
@@ -224,41 +239,77 @@ const translations: Record<Locale, Record<string, string>> = {
   },
 };
 
-// Current locale — reactive store
-let _locale: Locale = 'ko';
+// --- Reactive locale store (Svelte-compatible) ---
 
-function detectLocale(): Locale {
-  if (typeof window === 'undefined') return 'ko';
-  const saved = localStorage.getItem('hits-locale');
-  if (saved === 'en' || saved === 'ko') return saved;
-  const nav = navigator.language || '';
-  return nav.startsWith('ko') ? 'ko' : 'en';
-}
+type Listener = () => void;
 
-export function initLocale(): Locale {
-  _locale = detectLocale();
-  return _locale;
-}
+class LocaleStore {
+  private _value: Locale = 'ko';
+  private _listeners: Set<Listener> = new Set();
 
-export function getLocale(): Locale {
-  return _locale;
-}
+  constructor() {
+    this._value = this._detect();
+  }
 
-export function setLocale(l: Locale): void {
-  _locale = l;
-  if (typeof window !== 'undefined') {
-    localStorage.setItem('hits-locale', l);
+  private _detect(): Locale {
+    if (typeof window === 'undefined') return 'ko';
+    const saved = localStorage.getItem('hits-locale');
+    if (saved === 'en' || saved === 'ko') return saved;
+    const nav = navigator.language || '';
+    return nav.startsWith('ko') ? 'ko' : 'en';
+  }
+
+  get value(): Locale {
+    return this._value;
+  }
+
+  set value(newValue: Locale) {
+    if (this._value === newValue) return;
+    this._value = newValue;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('hits-locale', newValue);
+    }
+    this._listeners.forEach(fn => fn());
+  }
+
+  subscribe(fn: Listener): () => void {
+    this._listeners.add(fn);
+    return () => this._listeners.delete(fn);
   }
 }
 
-export function t(key: string): string {
-  return translations[_locale]?.[key] || translations['en']?.[key] || key;
+const localeStore = new LocaleStore();
+
+/** Initialize locale from browser/storage. Call once in App.svelte onMount. */
+export function initLocale(): Locale {
+  return localeStore.value;
 }
 
-// Alternative language label for toggle button
-export function altLang(): Locale {
-  return _locale === 'ko' ? 'en' : 'ko';
+/** Get current locale. */
+export function getLocale(): Locale {
+  return localeStore.value;
 }
+
+/** Set locale and persist to localStorage. Triggers all reactive subscribers. */
+export function setLocale(l: Locale): void {
+  localeStore.value = l;
+}
+
+/** Subscribe to locale changes (Svelte $-syntax compatible). */
+export function subscribeLocale(fn: Listener): () => void {
+  return localeStore.subscribe(fn);
+}
+
+/** Translate a key. Reads current locale reactively. */
+export function t(key: string): string {
+  return translations[localeStore.value]?.[key] || translations['en']?.[key] || key;
+}
+
+/** Alternative language label for toggle button. */
+export function altLang(): Locale {
+  return localeStore.value === 'ko' ? 'en' : 'ko';
+}
+
 export function altLangLabel(): string {
-  return _locale === 'ko' ? 'EN' : '한';
+  return localeStore.value === 'ko' ? 'EN' : '한';
 }
