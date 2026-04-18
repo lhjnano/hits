@@ -106,11 +106,11 @@ That's it. No database required — HITS uses file-based storage at `~/.hits/dat
       └── ❌ Negative Path: "Tried bcrypt first — too fast, GPU-vulnerable"
 ```
 
-**Timeline** — Chronological work log, grouped by date, filterable by project
+**Timeline** — Chronological work log, grouped by date, filterable by project. Click any entry to expand full details (context, files modified, commands run).
 
 **Handover** — Auto-generated summary of a project's context, ready to paste into a new AI session
 
-**i18n** — Korean/English toggle (🌐 button in header)
+**i18n** — Korean/English toggle (🌐 button in header), instant switch with auto-reload
 
 ### MCP Tools for AI Assistants
 
@@ -191,12 +191,13 @@ All features are also accessible via HTTP API:
 # Health check
 curl http://localhost:8765/api/health
 
-# Record work
+# Record work (source is required)
 curl -X POST http://localhost:8765/api/work-log \
   -H "Content-Type: application/json" \
   -b cookies.txt \
   -d '{
     "performed_by": "claude",
+    "source": "ai_session",
     "request_text": "Added rate limiting to login endpoint",
     "context": "10 req/min per IP, 429 response on limit",
     "project_path": "/home/user/my-project",
@@ -253,6 +254,7 @@ All data is stored centrally:
 │   ├── work_logs/       ← AI session work logs (JSON)
 │   ├── trees/           ← Knowledge trees
 │   └── workflows/       ← Workflows
+├── backups/             ← CLI backups (tar.gz)
 ├── .auth/               ← User accounts (chmod 700)
 │   └── users.json       ← User data (chmod 600)
 ├── .pepper              ← HMAC pepper (chmod 600)
@@ -262,6 +264,8 @@ Override with HITS_DATA_PATH environment variable
 ```
 
 ## CLI Options
+
+### Node.js (npx)
 
 ```
 npx hits [options]
@@ -277,6 +281,25 @@ Environment:
   HITS_PYTHON         Path to python executable (default: auto-detect)
   HITS_DATA_PATH      Data storage path (default: ~/.hits/data)
 ```
+
+### Python CLI (hits)
+
+```bash
+# Start web server
+hits                  # or: hits server
+hits server --port 9000 --dev
+
+# Backup & restore
+hits backup           # Backup all data to ~/.hits/backups/
+hits backup --list    # List available backups
+hits restore          # Restore latest backup (with auto-backup of current state)
+hits restore -n 1     # Restore specific backup by number
+
+# Status
+hits status           # Show accounts, work logs, trees, backups
+```
+
+Installed via `pip install -e .` or automatically with `npx hits`.
 
 ## API Reference
 
