@@ -1,6 +1,6 @@
 {
   "name": "@purpleraven/hits",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "HITS - Hybrid Intel Trace System. AI session handover with secure web UI.",
   "keywords": [
     "knowledge-management",
