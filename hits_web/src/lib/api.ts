@@ -124,6 +124,29 @@ export const api = {
       request(`/handover/project-stats?project_path=${encodeURIComponent(project_path)}`),
   },
 
+  // Checkpoints
+  checkpoints: {
+    resume: (project_path: string, token_budget?: number, performer?: string) => {
+      const q = new URLSearchParams({ project_path });
+      if (token_budget) q.set('token_budget', String(token_budget));
+      if (performer) q.set('performer', performer);
+      return request(`/checkpoint/resume?${q}`);
+    },
+    latest: (project_path: string, token_budget?: number) => {
+      const q = new URLSearchParams({ project_path });
+      if (token_budget) q.set('token_budget', String(token_budget));
+      return request(`/checkpoint/latest?${q}`);
+    },
+    list: (project_path: string, limit?: number) => {
+      const q = new URLSearchParams({ project_path });
+      if (limit) q.set('limit', String(limit));
+      return request(`/checkpoint/list?${q}`);
+    },
+    projects: () => request('/checkpoint/projects'),
+    auto: (data: Record<string, unknown>) =>
+      request('/checkpoint/auto', { method: 'POST', body: JSON.stringify(data) }),
+  },
+
   // Knowledge Categories
   knowledge: {
     list: () => request('/knowledge/categories'),

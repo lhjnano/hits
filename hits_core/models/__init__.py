@@ -5,6 +5,10 @@ from .node import Node, NodeType, NodeLayer
 from .workflow import Workflow, WorkflowStep
 from .work_log import WorkLog, WorkLogSource, WorkLogResultType
 from .signal import HandoverSignal, SignalStatus, SignalType
+from .checkpoint import (
+    Checkpoint, NextStep, FileDelta, Block, Decision,
+    StepPriority, ChangeType,
+)
 
 __all__ = [
     "KnowledgeTree",
@@ -19,4 +23,11 @@ __all__ = [
     "HandoverSignal",
     "SignalStatus",
     "SignalType",
+    "Checkpoint",
+    "NextStep",
+    "FileDelta",
+    "Block",
+    "Decision",
+    "StepPriority",
+    "ChangeType",
 ]

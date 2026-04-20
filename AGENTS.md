@@ -22,104 +22,131 @@ If pre-flight checks fail, fix the errors before proceeding.
 When an AI session is replaced due to token limits, project-specific handover activates automatically.
 All data is centrally stored at `~/.hits/data/` and isolated by project path.
 
+### 🚀 Quick Start (Recommended)
+
+```bash
+# At session START - resume where you left off
+npx @purpleraven/hits resume              # Auto-detects project from CWD
+npx @purpleraven/hits resume -l           # List all projects
+npx @purpleraven/hits resume -p /path     # Resume specific project
+
+# Via MCP tool (when HITS MCP is configured):
+# hits_resume() → Get structured checkpoint with next steps + pending signals
+```
+
 ### On Session Start
 
 ```bash
-# HTTP API (when HITS server is running)
-curl -s "http://localhost:8765/api/handover?project_path=$(pwd)" | python -m json.tool
+# Option 1: MCP tool (recommended)
+hits_resume()                              # Gets checkpoint + signals in one call
 
-# Or via MCP tool (when HITS MCP is configured):
-# hits_get_handover → Retrieve previous session's work, decisions, and unfinished items
+# Option 2: HTTP API
+curl -s "http://localhost:8765/api/checkpoint/resume?project_path=$(pwd)"
+
+# Option 3: CLI
+npx @purpleraven/hits resume
 ```
 
-### On Session End (MUST record)
+### On Session End (MUST do - one call does everything!)
 
 ```bash
-curl -X POST http://localhost:8765/api/work-log \
-  -H "Content-Type: application/json" \
-  -d '{
-    "performed_by": "<AI_tool_name>",
-    "request_text": "<work summary>",
-    "context": "<details, decisions>",
-    "source": "ai_session",
-    "tags": ["<tag>"],
-    "project_path": "<project_absolute_path>",
-    "result_data": {
-      "files_modified": ["<modified_file>"],
-      "commands_run": ["<executed_command>"]
-    }
-  }'
+# MCP tool: hits_auto_checkpoint (recommended)
+# This ONE call automatically:
+#   1. Records the work log
+#   2. Generates a structured checkpoint with next steps
+#   3. Sends a handover signal to the next AI tool
+#   4. Compresses output within token budget
+
+hits_auto_checkpoint(
+    performer="claude",
+    purpose="What this session was trying to accomplish",
+    current_state="What was actually achieved",
+    completion_pct=60,
+    next_steps=[
+        {"action": "Add feature X", "command": "edit file.py", "file": "file.py", "priority": "high"},
+        {"action": "Write tests", "command": "pytest tests/", "priority": "medium"},
+    ],
+    required_context=[
+        "Critical fact the next session must know",
+    ],
+    files_modified=["path/to/file1.py", "path/to/file2.py"],
+    blocks=[{"issue": "Something blocking", "workaround": "How to work around"}],
+    decisions=[{"decision": "What was decided", "rationale": "Why"}],
+)
 ```
 
-### performed_by Values
+### 🆕 Checkpoint System (v0.6+)
 
-| AI Tool | performed_by Value |
-|---------|-------------------|
-| OpenCode | `"opencode"` |
-| Claude Code | `"claude"` |
-| Cursor | `"cursor"` |
-| GitHub Copilot | `"copilot"` |
-| Manual | `"manual"` or username |
+The **Checkpoint** is the evolution of the Handover summary. Instead of a passive summary,
+it's an **executable snapshot** with:
 
-### project_path Rules
+| Field | Description |
+|-------|-------------|
+| `purpose` | What this session was trying to accomplish |
+| `current_state` | What was actually achieved |
+| `next_steps` | Priority-ordered actionable steps with commands and files |
+| `required_context` | Critical facts the next session MUST know |
+| `decisions_made` | Architectural decisions with rationale |
+| `blocks` | Current blockers with workarounds |
+| `files_delta` | File changes (created/modified/deleted) |
 
-- **Always use absolute paths**: `"/home/user/source/my-project"` (O), `"./my-project"` (X)
-- **Auto-detection**: Use the directory containing `.git` from CWD as the project path
-- **Project isolation**: Different `project_path` values have completely independent handover contexts
+**Token-Aware Compression**: Checkpoints automatically compress to fit within a token budget.
+At lower budgets, low-priority items are dropped first, preserving critical info.
 
-### MCP Tools (Recommended)
+**Project Resume Points**: Each project maintains a history of checkpoints.
+Use `hits_list_checkpoints()` or `npx @purpleraven/hits resume -l` to see all resume points.
 
-When the HITS MCP server is configured, use direct tool calls instead of HTTP API:
+### MCP Tools (Updated)
 
+**Core Tools:**
 ```
-hits_record_work    → Record work entry (auto-detects project_path)
-hits_get_handover   → Query handover summary
-hits_search_works   → Search past work
-hits_list_projects  → List projects
-hits_get_recent     → Get recent work
-```
-
-### Cross-Tool Signal Tools
-
-HITS provides a file-based signal system for real-time handover between AI tools. Signals are stored at `~/.hits/data/signals/pending/` as JSON files.
-
-```
-hits_signal_send    → Send a handover signal to another AI tool
-hits_signal_check   → Check for pending signals addressed to you
-hits_signal_consume → Acknowledge and archive a signal
+hits_record_work          → Record work entry (auto-detects project_path)
+hits_get_handover         → Query handover summary (legacy)
+hits_search_works         → Search past work
+hits_list_projects        → List projects
+hits_get_recent           → Get recent work
 ```
 
-**Session End Flow (sender):**
+**Signal Tools:**
 ```
-1. hits_record_work()                          # 작업 기록
-2. hits_signal_send(sender="claude", recipient="opencode", summary="...", pending_items=[...])
-```
-
-**Session Start Flow (receiver):**
-```
-1. hits_signal_check(recipient="opencode")     # 대기 중인 시그널 확인
-2. hits_get_handover()                         # 전체 컨텍스트 조회
-3. hits_signal_consume(signal_id="...", consumed_by="opencode")
+hits_signal_send          → Send a handover signal
+hits_signal_check         → Check for pending signals
+hits_signal_consume       → Acknowledge and archive a signal
 ```
 
-**Hook-based Auto Detection:**
-- Claude Code: `hooks/claude_signal_watcher.sh` in SessionStart hook
-- OpenCode: `hooks/opencode_signal_watcher.sh` in startup hook
-- Hooks output signal content to stderr → auto-injected into AI session
+**🆕 Checkpoint Tools (Recommended):**
+```
+hits_auto_checkpoint      → Auto-checkpoint at session end (record + checkpoint + signal)
+hits_resume               → Resume at session start (checkpoint + signals + consume)
+hits_list_checkpoints     → List available resume points
+```
 
-### When to Record
+### Session Flow (Simplified)
 
-- At the end of a long work session with the user
-- After completing a major feature implementation
-- After fixing a bug
-- When the user explicitly requests to end the session
-- **On token limit warning** (record immediately!)
+**Before (manual, 4 steps):**
+```
+Session End:   hits_record_work() + hits_signal_send()
+Session Start: hits_signal_check() + hits_get_handover() + hits_signal_consume()
+```
+
+**After (automated, 2 steps):**
+```
+Session End:   hits_auto_checkpoint()     # Does everything
+Session Start: hits_resume()              # Gets everything
+```
+
+**CLI Alternative:**
+```
+Session End:   hits_auto_checkpoint()     # Via MCP
+Session Start: npx @purpleraven/hits resume   # Via CLI
+```
 
 ### Data Store
 
 | Location | Description |
 |----------|-------------|
 | `~/.hits/data/work_logs/` | Work logs (JSON) |
+| `~/.hits/data/checkpoints/` | **Structured checkpoints per project** |
 | `~/.hits/data/trees/` | Knowledge trees |
 | `~/.hits/data/workflows/` | Workflows |
 | `~/.hits/data/signals/pending/` | Pending handover signals |
@@ -191,6 +218,16 @@ hits_signal_consume → Acknowledge and archive a signal
 | GET | `/api/signals/pending` | List all pending signals |
 | DELETE | `/api/signals/{signal_id}` | Delete a signal |
 
+### Checkpoints (Session Resume)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/checkpoint/resume?project_path=...` | Get latest checkpoint + signals for resume |
+| GET | `/api/checkpoint/latest?project_path=...` | Get latest checkpoint only |
+| GET | `/api/checkpoint/list?project_path=...` | List checkpoints for a project |
+| POST | `/api/checkpoint/auto` | Generate auto-checkpoint (record + checkpoint + signal) |
+| GET | `/api/checkpoint/projects` | List all projects with checkpoints |
+
 ```bash
 # Send signal (Claude → OpenCode)
 curl -X POST http://localhost:8765/api/signals/send \
@@ -243,15 +280,21 @@ hits_core/                    # Apache 2.0 - Backend
 │   ├── manager.py          # Argon2id + JWT + user management
 │   ├── middleware.py        # CSP, security headers
 │   └── dependencies.py     # FastAPI auth dependencies
-├── models/                 # Node, Tree, Workflow, WorkLog, HandoverSignal
+├── models/                 # Node, Tree, Workflow, WorkLog, HandoverSignal, Checkpoint
+│   ├── checkpoint.py       # 🆕 Structured checkpoint model
+│   └── ...
 ├── storage/                # Redis, File storage (~/.hits/data/)
 ├── ai/                     # Compression, SLM filter, LLM client
+│   ├── compressor.py       # Basic semantic compression
+│   └── checkpoint_compressor.py  # 🆕 Token-aware checkpoint compression
 ├── platform/               # Cross-platform utilities
 ├── service/                # TreeService, HandoverService, KnowledgeService, SignalService
+│   └── checkpoint_service.py     # 🆕 Checkpoint generation & management
 ├── api/                    # FastAPI server + routes
-│   └── routes/             # health, work_log, node, handover, auth, knowledge
+│   └── routes/             # health, work_log, node, handover, auth, knowledge, signal, checkpoint
 ├── collector/              # Git, Shell, AI session collectors
 ├── mcp/                    # MCP server (stdio transport)
+│   └── server.py           # 🆕 Updated with checkpoint tools
 └── main.py                 # Web server entry point
 
 hits_web/                      # Apache 2.0 - Svelte 5 Web UI

@@ -24,6 +24,8 @@ from hits_core.storage.file_store import FileStorage
 from hits_core.models.work_log import WorkLog, WorkLogSource, WorkLogResultType
 from hits_core.service.handover_service import HandoverService
 from hits_core.service.signal_service import SignalService
+from hits_core.service.checkpoint_service import CheckpointService
+from hits_core.ai.checkpoint_compressor import CheckpointCompressor
 
 
 def _detect_project_path() -> str:
@@ -292,6 +294,163 @@ class HITSMCPServer:
                 "required": ["signal_id", "consumed_by"],
             },
         },
+        # ─── Checkpoint Tools ──────────────────────────────────
+        {
+            "name": "hits_auto_checkpoint",
+            "description": (
+                "AUTO-CHECKPOINT: Call this when your session is ending. "
+                "It automatically generates a structured checkpoint from your work logs, "
+                "sends a handover signal, AND records the work log - all in one call. "
+                "This is the RECOMMENDED way to end a session instead of calling "
+                "hits_record_work + hits_signal_send separately.\n\n"
+                "The checkpoint includes: purpose, next steps (with commands), "
+                "required context, file deltas, decisions, and blockers.\n\n"
+                "ALWAYS call this at session end, even if you're not sure what to put. "
+                "It auto-extracts most information from your existing work logs."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "performer": {
+                        "type": "string",
+                        "description": "Your tool name: 'claude', 'opencode', 'cursor', etc.",
+                    },
+                    "purpose": {
+                        "type": "string",
+                        "description": "What this session was trying to accomplish (1-2 sentences)",
+                    },
+                    "current_state": {
+                        "type": "string",
+                        "description": "What was actually achieved (1-2 sentences)",
+                    },
+                    "completion_pct": {
+                        "type": "integer",
+                        "description": "Estimated completion percentage 0-100",
+                    },
+                    "next_steps": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "action": {"type": "string", "description": "What to do (imperative)"},
+                                "command": {"type": "string", "description": "Shell command if applicable"},
+                                "file": {"type": "string", "description": "Primary file to edit"},
+                                "priority": {"type": "string", "description": "critical/high/medium/low"},
+                            },
+                            "required": ["action"],
+                        },
+                        "description": "Ordered list of next steps for the next session",
+                    },
+                    "required_context": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Critical facts the next session MUST know",
+                    },
+                    "files_modified": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Files that were modified in this session",
+                    },
+                    "commands_run": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Commands that were run",
+                    },
+                    "blocks": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "issue": {"type": "string", "description": "What's blocking"},
+                                "workaround": {"type": "string", "description": "Known workaround"},
+                                "severity": {"type": "string", "description": "critical/medium/low"},
+                            },
+                            "required": ["issue"],
+                        },
+                        "description": "Blockers preventing progress",
+                    },
+                    "decisions": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "decision": {"type": "string", "description": "What was decided"},
+                                "rationale": {"type": "string", "description": "Why"},
+                            },
+                            "required": ["decision"],
+                        },
+                        "description": "Important decisions made in this session",
+                    },
+                    "send_signal": {
+                        "type": "boolean",
+                        "description": "Also send a handover signal (default: true)",
+                    },
+                    "signal_recipient": {
+                        "type": "string",
+                        "description": "Signal recipient tool name (default: 'any')",
+                    },
+                    "project_path": {
+                        "type": "string",
+                        "description": "Override auto-detected project path",
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Token budget for compressed output (default: 2000)",
+                    },
+                },
+                "required": ["performer"],
+            },
+        },
+        {
+            "name": "hits_resume",
+            "description": (
+                "RESUME: Call this when starting a new session to immediately "
+                "understand what to do next. Returns a structured checkpoint with "
+                "actionable next steps, commands, and required context.\n\n"
+                "Also checks for pending handover signals and includes them.\n\n"
+                "This is the RECOMMENDED way to start a session instead of calling "
+                "hits_get_handover + hits_signal_check separately."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "project_path": {
+                        "type": "string",
+                        "description": "Project path (default: auto-detect from CWD)",
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Max tokens for response (default: 2000). "
+                        "Automatically compresses to fit.",
+                    },
+                    "performer": {
+                        "type": "string",
+                        "description": "Your tool name (for consuming signals)",
+                    },
+                },
+            },
+        },
+        {
+            "name": "hits_list_checkpoints",
+            "description": (
+                "List available resume points (checkpoints) for a project. "
+                "Use this to see the history of session snapshots and choose "
+                "which one to resume from."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "project_path": {
+                        "type": "string",
+                        "description": "Project path (default: auto-detect from CWD)",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Max checkpoints to return (default: 5)",
+                    },
+                },
+            },
+        },
     ]
 
     SERVER_INFO = {
@@ -308,6 +467,8 @@ class HITSMCPServer:
         self.storage = FileStorage(base_path=data_path)
         self.handover_service = HandoverService(storage=self.storage)
         self.signal_service = SignalService(data_path=data_path)
+        self.checkpoint_service = CheckpointService(storage=self.storage)
+        self.checkpoint_compressor = CheckpointCompressor()
 
     async def handle_initialize(self, params: dict, id_val: Any) -> str:
         result = {
@@ -341,6 +502,12 @@ class HITSMCPServer:
                 result = await self._tool_signal_check(arguments)
             elif tool_name == "hits_signal_consume":
                 result = await self._tool_signal_consume(arguments)
+            elif tool_name == "hits_auto_checkpoint":
+                result = await self._tool_auto_checkpoint(arguments)
+            elif tool_name == "hits_resume":
+                result = await self._tool_resume(arguments)
+            elif tool_name == "hits_list_checkpoints":
+                result = await self._tool_list_checkpoints(arguments)
             else:
                 return _json_rpc_response(
                     id_val,
@@ -544,6 +711,193 @@ class HITSMCPServer:
             f"  {signal.sender} → {consumed_by}\n"
             f"  상태: consumed"
         )
+
+    # ─── Checkpoint Tools ──────────────────────────────────────
+
+    async def _tool_auto_checkpoint(self, args: dict) -> list[dict]:
+        """Auto-checkpoint: record work + generate checkpoint + send signal."""
+        project_path = args.get("project_path") or _detect_project_path()
+        performer = args.get("performer", "unknown")
+        token_budget = args.get("token_budget", 2000)
+
+        # 1. Record work log
+        log = WorkLog(
+            id=str(uuid4())[:8],
+            source=WorkLogSource.AI_SESSION,
+            performed_by=performer,
+            request_text=args.get("purpose") or args.get("current_state") or "Session checkpoint",
+            context=args.get("current_state"),
+            tags=["checkpoint", "auto"],
+            project_path=str(Path(project_path).resolve()),
+            result_type=WorkLogResultType.AI_RESPONSE,
+            result_data={
+                "files_modified": args.get("files_modified", []),
+                "commands_run": args.get("commands_run", []),
+            },
+        )
+        await self.storage.save_work_log(log)
+
+        # 2. Generate checkpoint
+        from ..models.checkpoint import NextStep as CPNextStep, Block as CPBlock, Decision as CPDecision
+
+        next_steps = []
+        for step in args.get("next_steps", []):
+            next_steps.append(CPNextStep(
+                action=step["action"],
+                command=step.get("command"),
+                file=step.get("file"),
+                priority=step.get("priority", "medium"),
+            ))
+
+        blocks = []
+        for b in args.get("blocks", []):
+            blocks.append(CPBlock(
+                issue=b["issue"],
+                workaround=b.get("workaround"),
+                severity=b.get("severity", "medium"),
+            ))
+
+        decisions = []
+        for d in args.get("decisions", []):
+            decisions.append(CPDecision(
+                decision=d["decision"],
+                rationale=d.get("rationale"),
+            ))
+
+        checkpoint = await self.checkpoint_service.auto_checkpoint(
+            project_path=project_path,
+            performer=performer,
+            purpose=args.get("purpose", ""),
+            current_state=args.get("current_state", ""),
+            completion_pct=args.get("completion_pct", 0),
+            additional_context=args.get("required_context", []),
+            additional_steps=next_steps,
+            files_modified=args.get("files_modified", []),
+            commands_run=args.get("commands_run", []),
+        )
+
+        # Override extracted blocks/decisions with explicit ones if provided
+        if blocks:
+            checkpoint.blocks = blocks
+        if decisions:
+            checkpoint.decisions_made = decisions
+
+        # 3. Send signal (default: true)
+        signal_info = ""
+        if args.get("send_signal", True):
+            signal = await self.signal_service.send_signal(
+                sender=performer,
+                recipient=args.get("signal_recipient", "any"),
+                signal_type="session_end",
+                project_path=str(Path(project_path).resolve()),
+                summary=args.get("purpose", checkpoint.purpose),
+                context=checkpoint.to_compact(token_budget=500),
+                pending_items=[s.action for s in checkpoint.next_steps[:3]],
+                tags=["checkpoint", "auto"],
+                priority="normal" if checkpoint.completion_pct >= 80 else "high",
+            )
+            signal_info = f"\n  📨 Signal: {signal.id} ({signal.sender} → {signal.recipient})"
+
+        # 4. Compress output
+        compressed = self.checkpoint_compressor.compress_checkpoint(
+            checkpoint, token_budget=token_budget
+        )
+
+        return _tool_result(
+            f"✅ Auto-checkpoint 완료\n"
+            f"  📝 Work log: {log.id}\n"
+            f"  💾 Checkpoint: {checkpoint.id}\n"
+            f"  📂 Project: {project_path}\n"
+            f"  👤 By: {performer}\n"
+            f"  📊 Progress: {checkpoint.completion_pct}%"
+            f"{signal_info}\n\n"
+            f"--- CHECKPOINT (next session context) ---\n\n"
+            f"{compressed}\n\n"
+            f"--- END CHECKPOINT ---"
+        )
+
+    async def _tool_resume(self, args: dict) -> list[dict]:
+        """Resume: get latest checkpoint + check signals."""
+        project_path = args.get("project_path") or _detect_project_path()
+        project_path = str(Path(project_path).resolve())
+        token_budget = args.get("token_budget", 2000)
+        performer = args.get("performer", "unknown")
+
+        parts = []
+
+        # 1. Check for pending signals
+        signals = await self.signal_service.check_signals(
+            recipient="any",
+            project_path=project_path,
+            limit=3,
+        )
+        if signals:
+            parts.append("📬 PENDING SIGNALS:")
+            for sig in signals:
+                priority_icon = {"urgent": "🔴", "high": "🟡"}.get(sig.priority, "🟢")
+                parts.append(f"  {priority_icon} [{sig.sender}] {sig.summary}")
+                if sig.pending_items:
+                    for item in sig.pending_items[:3]:
+                        parts.append(f"    • {item}")
+                parts.append("")
+
+            # Auto-consume signals if performer specified
+            if performer and performer != "unknown":
+                for sig in signals:
+                    await self.signal_service.consume_signal(sig.id, performer)
+
+        # 2. Get latest checkpoint
+        checkpoint = await self.checkpoint_service.get_latest_checkpoint(project_path)
+
+        if checkpoint:
+            compressed = self.checkpoint_compressor.compress_checkpoint(
+                checkpoint, token_budget=token_budget
+            )
+            parts.append("--- RESUME CONTEXT ---\n")
+            parts.append(compressed)
+            parts.append("\n--- END RESUME ---")
+        else:
+            # Fallback to handover summary
+            summary = await self.handover_service.get_handover(project_path)
+            parts.append("--- RESUME (handover fallback) ---\n")
+            parts.append(summary.to_text())
+            parts.append("\n--- END RESUME ---")
+
+        return _tool_result("\n".join(parts))
+
+    async def _tool_list_checkpoints(self, args: dict) -> list[dict]:
+        """List available checkpoints for a project."""
+        project_path = args.get("project_path") or _detect_project_path()
+        project_path = str(Path(project_path).resolve())
+        limit = args.get("limit", 5)
+
+        checkpoints = await self.checkpoint_service.list_checkpoints(
+            project_path, limit=limit
+        )
+
+        if not checkpoints:
+            return _tool_result(
+                f"사용 가능한 체크포인트가 없습니다.\n"
+                f"프로젝트: {project_path}\n"
+                f"세션 종료 시 hits_auto_checkpoint()를 호출하면 자동 생성됩니다."
+            )
+
+        lines = [f"📍 Resume Points ({len(checkpoints)}개)\n"]
+        for i, cp in enumerate(checkpoints, 1):
+            ts = cp.created_at.strftime("%Y-%m-%d %H:%M")
+            progress = "█" * (cp.completion_pct // 10) + "░" * (10 - cp.completion_pct // 10)
+            lines.append(f"  {i}. [{ts}] {cp.performer}")
+            lines.append(f"     목적: {cp.purpose[:80]}")
+            lines.append(f"     진행: {progress} {cp.completion_pct}%")
+            if cp.next_steps:
+                lines.append(f"     다음: {cp.next_steps[0].action[:60]}")
+            if cp.git_branch:
+                lines.append(f"     git: {cp.git_branch}")
+            lines.append(f"     ID: {cp.id}")
+            lines.append("")
+
+        lines.append(f"Resume: hits_resume() 또는 npx @purpleraven/hits resume")
+        return _tool_result("\n".join(lines))
 
     async def handle_request(self, request: dict) -> Optional[str]:
         """Handle a single JSON-RPC request."""

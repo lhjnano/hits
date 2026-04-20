@@ -77,3 +77,66 @@ done
 if [ "$FOUND" -eq 0 ]; then
     echo "ℹ️ HITS: 대기 중인 인수인계 시그널이 없습니다." >&2
 fi
+
+# ── Auto Resume ────────────────────────────────────────────
+# 현재 프로젝트에 checkpoint가 있으면 자동으로 resume 정보 제공
+CHECKPOINT_DIR="$HOME/.hits/data/checkpoints"
+CWD_PROJECT=""
+
+# CWD에서 git root 탐색
+current="$(pwd)"
+for i in $(seq 1 10); do
+    if [ -d "$current/.git" ]; then
+        CWD_PROJECT="$current"
+        break
+    fi
+    parent=$(dirname "$current")
+    [ "$parent" = "$current" ] && break
+    current="$parent"
+done
+
+if [ -n "$CWD_PROJECT" ]; then
+    # 프로젝트 경로를 디렉토리명으로 변환 (/home/user/project → _home_user_project)
+    PROJECT_KEY=$(echo "$CWD_PROJECT" | sed 's|/|_|g')
+    LATEST_CP="$CHECKPOINT_DIR/$PROJECT_KEY/latest.json"
+
+    if [ -f "$LATEST_CP" ]; then
+        # Checkpoint 내용을 stderr로 출력
+        python3 -c "
+import json
+try:
+    d = json.load(open('$LATEST_CP'))
+    purpose = d.get('purpose', 'No purpose set')
+    state = d.get('current_state', '')
+    pct = d.get('completion_pct', 0)
+    performer = d.get('performer', '?')
+    steps = d.get('next_steps', [])
+    git_branch = d.get('git_branch', '')
+
+    lines = []
+    lines.append('▶ HITS RESUME: 마지막 작업 상태')
+    lines.append(f'  목적: {purpose}')
+    lines.append(f'  진행: {pct}% (by {performer})')
+    if git_branch:
+        lines.append(f'  git: {git_branch}')
+    if state:
+        lines.append(f'  달성: {state}')
+    if steps:
+        lines.append(f'  다음 단계:')
+        for i, s in enumerate(steps[:3], 1):
+            action = s.get('action', '')
+            cmd = s.get('command', '')
+            priority = s.get('priority', 'medium')
+            icon = {'critical': '🔴', 'high': '🟡'}.get(priority, '🟢')
+            line = f'    {i}. {icon} {action}'
+            if cmd:
+                line += f' → {cmd}'
+            lines.append(line)
+    lines.append('')
+    lines.append('👉 hits_resume()로 전체 컨텍스트를 확인하세요.')
+    print('\\n'.join(lines))
+except Exception as e:
+    pass
+" 2>/dev/null | while IFS= read -r line; do echo "$line" >&2; done
+    fi
+fi

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hits"
-version = "0.3.3"
+version = "0.6.0"
 description = "Hybrid Intel Trace System - AI-efficient knowledge preservation and session handover"
 readme = "README.md"
 license = {text = "Apache-2.0"}

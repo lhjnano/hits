@@ -5,5 +5,6 @@ from . import handover
 from . import auth
 from . import knowledge
 from . import signal
+from . import checkpoint
 
-__all__ = ["health", "work_log", "node", "handover", "auth", "knowledge", "signal"]
+__all__ = ["health", "work_log", "node", "handover", "auth", "knowledge", "signal", "checkpoint"]

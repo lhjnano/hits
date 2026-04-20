@@ -6,6 +6,7 @@
   import KnowledgeTree from './KnowledgeTree.svelte';
   import Timeline from './Timeline.svelte';
   import HandoverPanel from './HandoverPanel.svelte';
+  import ResumePanel from './ResumePanel.svelte';
 
   let { onLogout } = $props<{ onLogout: () => void }>();
 
@@ -17,7 +18,7 @@
   let passwordError = $state('');
   let passwordSuccess = $state('');
   let refreshing = $state(false);
-  let activeTab: 'knowledge' | 'timeline' | 'handover' = $state('knowledge');
+  let activeTab: 'knowledge' | 'timeline' | 'handover' | 'resume' = $state('resume');
   let sidebarOpen = $state(true);
   let langLabel = $state(altLangLabel());
   // Counter to force re-render when locale changes
@@ -89,7 +90,7 @@
     }
   }
 
-  function switchTab(tab: 'knowledge' | 'timeline' | 'handover') {
+  function switchTab(tab: 'knowledge' | 'timeline' | 'handover' | 'resume') {
     activeTab = tab;
   }
 </script>
@@ -142,6 +143,9 @@
       <h1>HITS</h1>
 
       <div class="tabs" style="margin-left:12px;">
+        <button class="tab" class:active={activeTab === 'resume'} onclick={() => switchTab('resume')}>
+          ▶ Resume
+        </button>
         <button class="tab" class:active={activeTab === 'knowledge'} onclick={() => switchTab('knowledge')}>
           📋 {t('header.knowledge')}
         </button>
@@ -185,7 +189,9 @@
 
     <!-- Content -->
     <div class="content-area">
-      {#if activeTab === 'knowledge'}
+      {#if activeTab === 'resume'}
+        <ResumePanel />
+      {:else if activeTab === 'knowledge'}
         <KnowledgeTree />
       {:else if activeTab === 'timeline'}
         <Timeline />

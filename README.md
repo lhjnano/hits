@@ -1,36 +1,64 @@
-# hits
+<div align="center">
 
-> Replicate your predecessor's brain as perfectly as possible, using the least amount of AI.
+# 🧠 HITS
 
-A secure web-based knowledge management system that preserves organizational context across AI tool sessions. When your Claude session hits the token limit and you switch to a new one — HITS ensures nothing is lost.
+### **Your AI session died. Your work didn't.**
 
-## What Problem Does This Solve?
+**The checkpoint system for AI coding sessions. Token limits, session swaps, tool switches — pick up exactly where you left off.**
 
-You're working on a project with Claude Code. After a long session, you hit the token limit. A new session starts — but it has **no idea** what you did, what decisions were made, or what was left unfinished.
+[![npm version](https://img.shields.io/npm/v/@purpleraven/hits?color=blue&label=npm)](https://www.npmjs.com/package/@purpleraven/hits)
+[![license](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE)
 
-**HITS fixes this:**
+**`npx @purpleraven/hits`** — zero config, one command, you're running
 
-1. **Record work** during each AI session (manually or via MCP tools)
-2. **Query handover** when a new session starts — it gets the full context
-3. **Knowledge trees** preserve the WHY/HOW/WHAT of every project
-4. **All AI tools share the same data** — Claude, OpenCode, Cursor, it doesn't matter
+---
 
 ```
-[OpenCode session ends]              [Claude session starts]
-        │                                    │
-   Record work:                          Query handover:
-   "Added JWT auth,                      → Previous: Added JWT auth
-    chose Argon2id over                     → Decisions: Argon2id > bcrypt
-    bcrypt, still need to                    → Pending: rate limiting
-    add rate limiting"                       → Files: auth/manager.py, ...
+⚠️  Token limit reached. Session ending...
+
+                                  Next session:
+
+    $ npx @purpleraven/hits resume
+
+    ▶ RESUME: my-project
+      Purpose: Implement JWT authentication
+      Progress: 60% (by claude)
+      Achieved: Argon2id hashing + JWT issuance complete
+
+      Next Steps:
+        1. 🟡 Add refresh token rotation → edit auth/manager.py
+        2. 🟢 Write auth middleware tests  → pytest tests/
+
+    ✅ Back to work in 0 seconds — exactly where you stopped.
 ```
+
+**3 seconds to install → 1 second to checkpoint at session end → 0 seconds to resume next session**
+
+</div>
+
+---
+
+## Sound Familiar?
+
+> Working with Claude Code for hours... **Token limit reached.**  
+> A new session starts, but it has **no idea** what you did, what was decided, or what's left unfinished.
+
+**HITS ends this:**
+
+| The Problem | HITS Solution |
+|------|-----------|
+| 🔴 Token limit kills your session | ✅ **Auto-checkpoint** — next session picks up exactly where you stopped |
+| 🔴 Switching AI tools (Claude ↔ OpenCode) | ✅ **Cross-tool signals** — real-time handover between any AI tool |
+| 🔴 No idea what to do next | ✅ **Actionable Next Steps** — with shell commands and file paths |
+| 🔴 Previous decisions forgotten | ✅ **Structured Decision log** — what was decided and why |
+| 🔴 Too much context, wasting tokens | ✅ **Token-aware compression** — fits your budget automatically |
 
 ## Quick Start
 
-### One Command — That's It
+### 30 Seconds to Install
 
 ```bash
-npx hits
+npx @purpleraven/hits
 ```
 
 That single command will:
@@ -41,6 +69,55 @@ That single command will:
 4. **Start the Python backend** (FastAPI on port 8765)
 5. **Start the web server** (Express on port 8765)
 6. Open **http://127.0.0.1:8765** in your browser
+
+### Connect to Your AI (MCP) — This Is Where It Gets Good
+
+```bash
+# Claude Code
+claude mcp add hits -- npx -y -p @purpleraven/hits hits-mcp
+
+# OpenCode — ~/.config/opencode/mcp.json
+# Cursor, Copilot, or any MCP-compatible tool — same setup
+```
+
+**Once connected, your AI automatically:**
+- Calls `hits_auto_checkpoint()` at session end → records work + saves checkpoint + sends signal (1 second)
+- Calls `hits_resume()` or you run `npx @purpleraven/hits resume` at session start → full context restored (0 seconds)
+
+### 🆕 Resume Where You Left Off
+
+```bash
+# From your project directory
+cd ~/source/my-project
+npx @purpleraven/hits resume
+
+# Or via MCP tool
+hits_resume()   # → checkpoint + pending signals + full context in one call
+```
+
+```
+📂 Resuming: /home/user/my-project
+──────────────────────────────────────────────────
+
+## CHECKPOINT: my-project
+path: /home/user/my-project
+git: feature/auth (3 changes)
+by: claude @ 2026-04-21 15:30
+progress: 60%
+
+PURPOSE: Implement JWT authentication system
+ACHIEVED: Argon2id hashing + JWT token issuance complete
+
+NEXT STEPS:
+  1. 🟡 Add refresh token rotation → edit auth/manager.py
+  2. 🟢 Write auth middleware tests → pytest tests/
+
+MUST KNOW:
+  • Using Argon2id (not bcrypt)
+  • JWT expires after 15 minutes, stored in HttpOnly cookies
+
+FILES: [~] auth/manager.py  [+] tests/test_auth.py
+```
 
 ### First Time Setup
 
@@ -152,7 +229,17 @@ Or add to `.mcp.json` in your project root:
 >
 > **How it works:** `npx` downloads the package, auto-detects Python, creates a venv, installs dependencies, and spawns the MCP server over stdio — all automatically on first run.
 
-#### 8 MCP Tools
+#### 11 MCP Tools
+
+**🆕 Checkpoint Tools (Recommended — one-call automation):**
+
+| Tool | What It Does |
+|------|-------------|
+| `hits_auto_checkpoint` | **Session end, one call** — records work + saves checkpoint + sends signal |
+| `hits_resume` | **Session start, one call** — loads checkpoint + checks signals + auto-consumes |
+| `hits_list_checkpoints` | List checkpoint history per project (select resume point) |
+
+**Core Tools:**
 
 | Tool | What It Does |
 |------|-------------|
@@ -161,6 +248,11 @@ Or add to `.mcp.json` in your project root:
 | `hits_search_works` | Search past work by keyword |
 | `hits_list_projects` | List all projects with recorded work |
 | `hits_get_recent` | Get the most recent work entries |
+
+**Signal Tools (cross-tool handover):**
+
+| Tool | What It Does |
+|------|-------------|
 | `hits_signal_send` | Send a handover signal to another AI tool (Claude↔OpenCode) |
 | `hits_signal_check` | Check for pending signals addressed to you |
 | `hits_signal_consume` | Acknowledge and archive a signal |
@@ -391,22 +483,22 @@ HITS provides a file-based signal system for real-time handover between AI tools
 ### MCP Signal Tools
 
 ```python
-# 1. 세션 종료 시 시그널 전송 (Claude → OpenCode)
+# 1. Send signal at session end (Claude → OpenCode)
 hits_signal_send(
     sender="claude",
     recipient="opencode",        # or "any" for broadcast
-    summary="JWT auth 구현 완료, rate limiting 남음",
-    pending_items=["rate limiting 추가", "CORS 설정"],
+    summary="JWT auth implementation done, rate limiting remaining",
+    pending_items=["Add rate limiting", "Configure CORS"],
     priority="high"              # normal | high | urgent
 )
 
-# 2. 세션 시작 시 시그널 확인
+# 2. Check signals at session start
 hits_signal_check(recipient="opencode")
 # → 🟡 [04/14 14:30] claude → opencode
-#    요약: JWT auth 구현 완료, rate limiting 남음
-#    미완료: rate limiting 추가, CORS 설정
+#    Summary: JWT auth implementation done, rate limiting remaining
+#    Pending: Add rate limiting, Configure CORS
 
-# 3. 시그널 소진 (확인 완료)
+# 3. Consume signal (acknowledge)
 hits_signal_consume(signal_id="sig_abc12345", consumed_by="opencode")
 ```
 
@@ -457,18 +549,18 @@ Then reference it:
 When Claude starts a session, it will see:
 
 ```
-📬 HITS 인수인계 시그널 감지!
-  보낸이: opencode
-  유형: session_end
-  우선순위: high
-  요약: LVM DR 스크립트 디버깅 완료
-  미완료 항목:
-    - 원격 백업 테스트
-    - CronJob 매니페스트 작성
-  시그널 ID: sig_fb5bd38c
+📬 HITS handover signal detected!
+  From: opencode
+  Type: session_end
+  Priority: high
+  Summary: LVM DR script debugging complete
+  Pending items:
+    - Test remote backup
+    - Write CronJob manifest
+  Signal ID: sig_fb5bd38c
 
-👉 hits_get_handover()로 전체 컨텍스트를 확인하고,
-👉 hits_signal_consume(signal_id="sig_fb5bd38c", consumed_by="claude")로 시그널을 소진하세요.
+👉 Use hits_get_handover() to load full context,
+👉 Use hits_signal_consume(signal_id="sig_fb5bd38c", consumed_by="claude") to acknowledge.
 ```
 
 #### OpenCode — SessionStart Hook
@@ -496,16 +588,16 @@ Configure as a startup hook in your OpenCode settings.
 ### Full Handover Flow
 
 ```
-1. Claude 세션 종료:
-   → hits_record_work()       # 작업 기록
-   → hits_signal_send()       # OpenCode에 시그널 전송
+1. Claude session ends:
+   → hits_record_work()       # Record work
+   → hits_signal_send()       # Send signal to OpenCode
 
-2. OpenCode 세션 시작:
-   → hook가 자동 감지 (stderr 주입)
-   → hits_get_handover()      # 전체 컨텍스트 조회
-   → hits_signal_consume()    # 시그널 소진
+2. OpenCode session starts:
+   → Hook auto-detects signal (injected via stderr)
+   → hits_get_handover()      # Load full context
+   → hits_signal_consume()    # Acknowledge signal
 
-3. OpenCode 세션 종료:
+3. OpenCode session ends:
    → hits_record_work()
    → hits_signal_send(sender="opencode", recipient="claude")
 ```

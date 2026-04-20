@@ -3,6 +3,7 @@
 Usage:
     hits                     Start web server (default)
     hits server [--port PORT] [--dev]
+    hits resume [--project PATH] [--list] [--token-budget N]
     hits backup              Backup all HITS data
     hits backup --list       List backups
     hits restore             Restore latest backup
@@ -11,6 +12,7 @@ Usage:
 """
 
 import argparse
+import asyncio
 import json
 import os
 import shutil
@@ -38,6 +40,110 @@ def _count_files(directory: Path, pattern: str = "*.json") -> int:
     if not directory.exists():
         return 0
     return sum(1 for f in directory.glob(pattern) if f.name != "index.json")
+
+
+def cmd_resume(args):
+    """Resume work on a project - show latest checkpoint with actionable context."""
+    from hits_core.service.checkpoint_service import CheckpointService
+    from hits_core.service.signal_service import SignalService
+    from hits_core.ai.checkpoint_compressor import CheckpointCompressor
+    from hits_core.storage.file_store import FileStorage
+
+    async def _resume():
+        storage = FileStorage()
+        cp_service = CheckpointService(storage=storage)
+        sig_service = SignalService()
+        compressor = CheckpointCompressor()
+
+        # Determine project path
+        project_path = getattr(args, "project", None)
+        if project_path:
+            project_path = str(Path(project_path).resolve())
+        else:
+            # Auto-detect from CWD
+            cwd = Path.cwd().resolve()
+            current = cwd
+            for _ in range(10):
+                if (current / ".git").exists():
+                    project_path = str(current)
+                    break
+                parent = current.parent
+                if parent == current:
+                    break
+                current = parent
+            if not project_path:
+                project_path = str(cwd)
+
+        token_budget = getattr(args, "token_budget", 2000) or 2000
+
+        # List mode
+        if getattr(args, "list", False):
+            # List all projects with checkpoints
+            projects = await cp_service.list_all_projects()
+            if not projects:
+                print("No checkpoints found. Start working and use hits_auto_checkpoint() at session end.")
+                return
+
+            print(f"📍 Resume Points ({len(projects)} projects)\n")
+            for i, p in enumerate(projects, 1):
+                name = p.get("project_name", Path(p["project_path"]).name)
+                pct = p.get("completion_pct", 0)
+                performer = p.get("last_performer", "?")
+                ts = (p.get("last_activity") or "")[:16]
+                purpose = p.get("purpose", "")
+                git = p.get("git_branch", "")
+
+                progress = "█" * (pct // 10) + "░" * (10 - pct // 10)
+                print(f"  {i}. {name}")
+                print(f"     path: {p['project_path']}")
+                print(f"     진행: {progress} {pct}%  by {performer}  at {ts}")
+                if purpose:
+                    print(f"     목적: {purpose}")
+                if git:
+                    print(f"     git: {git}")
+                print()
+
+            print("Resume: hits resume --project <path>")
+            print("        npx @purpleraven/hits resume")
+            return
+
+        # Resume mode - show latest checkpoint
+        print(f"📂 Resuming: {project_path}")
+        print(f"{'─' * 50}\n")
+
+        # Check for pending signals
+        signals = await sig_service.check_signals(recipient="any", project_path=project_path)
+        if signals:
+            print("📬 Pending Signals:")
+            for sig in signals:
+                icon = {"urgent": "🔴", "high": "🟡"}.get(sig.priority, "🟢")
+                print(f"  {icon} From {sig.sender}: {sig.summary}")
+                if sig.pending_items:
+                    for item in sig.pending_items[:3]:
+                        print(f"    • {item}")
+            print()
+
+        # Get latest checkpoint
+        checkpoint = await cp_service.get_latest_checkpoint(project_path)
+        if checkpoint:
+            compressed = compressor.compress_checkpoint(checkpoint, token_budget=token_budget)
+            print(compressed)
+        else:
+            # Fallback to handover
+            from hits_core.service.handover_service import HandoverService
+            hs = HandoverService(storage=storage)
+            summary = await hs.get_handover(project_path)
+            text = summary.to_text()
+            if text.strip() and "기록된 작업이 없습니다" not in text:
+                print(text)
+            else:
+                print("No previous session data found for this project.")
+                print("\nTo get started:")
+                print("  1. Work on your project with an AI tool")
+                print("  2. At session end, call hits_auto_checkpoint()")
+                print("  3. Next session: npx @purpleraven/hits resume")
+
+    asyncio.run(_resume())
 
 
 def cmd_server(args):
@@ -88,6 +194,15 @@ def cmd_status(args):
         print(f"  🌳 Trees:        {tr}")
         print(f"  📨 Signals:      {sig_p} pending, {sig_c} consumed")
         print(f"  🔄 Workflows:    {wf}")
+
+        # Checkpoints
+        cp_dir = DATA_DIR / "checkpoints"
+        if cp_dir.exists():
+            cp_count = sum(1 for _ in cp_dir.rglob("cp_*.json"))
+            project_count = sum(1 for d in cp_dir.iterdir() if d.is_dir())
+            print(f"  💾 Checkpoints:  {cp_count} ({project_count} projects)")
+        else:
+            print(f"  💾 Checkpoints:  0")
     else:
         print("  (no data)")
 
@@ -269,6 +384,15 @@ def main():
     # status
     sub.add_parser("status", help="Show current data status")
 
+    # resume
+    resume_parser = sub.add_parser("resume", help="Resume work - show latest checkpoint")
+    resume_parser.add_argument("--project", "-p", type=str, default=None,
+                               help="Project path (default: auto-detect from CWD)")
+    resume_parser.add_argument("--list", "-l", action="store_true",
+                               help="List all projects with checkpoints")
+    resume_parser.add_argument("--token-budget", "-t", type=int, default=2000,
+                               help="Token budget for output (default: 2000)")
+
     args = parser.parse_args()
 
     if args.command is None or args.command == "server":
@@ -282,6 +406,8 @@ def main():
         cmd_restore(args)
     elif args.command == "status":
         cmd_status(args)
+    elif args.command == "resume":
+        cmd_resume(args)
     else:
         parser.print_help()
 

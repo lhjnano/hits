@@ -59,7 +59,7 @@ export const authStore = new Store<AuthState>({
 
 // --- UI State ---
 export interface UIState {
-  activeTab: 'knowledge' | 'timeline' | 'handover';
+  activeTab: 'knowledge' | 'timeline' | 'handover' | 'resume';
   selectedProject: string;
   sidebarOpen: boolean;
   searchQuery: string;
@@ -68,7 +68,7 @@ export interface UIState {
 }
 
 export const uiStore = new Store<UIState>({
-  activeTab: 'knowledge',
+  activeTab: 'resume',
   selectedProject: '',
   sidebarOpen: true,
   searchQuery: '',
