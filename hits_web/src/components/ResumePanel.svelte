@@ -12,6 +12,7 @@
   let checkpoints = $state<any[]>([]);
   let localeTick = $state(0);
   let showHistory = $state(false);
+  let showGuide = $state(false);
   let copyFeedback = $state('');
   let expandedSections = $state<Record<string, boolean>>({
     achieved: true,
@@ -93,7 +94,7 @@
     const cp = checkpointData?.checkpoint;
     const toolLabel = tool === 'claude' ? 'Claude Code' : 'OpenCode';
 
-    // Send signal so hook picks it up on next session start
+    // Send signal
     const res = await api.signals.send({
       sender: 'web-ui',
       recipient: tool,
@@ -105,14 +106,16 @@
       tags: ['resume', 'web-ui'],
     });
 
+    // Build prompt to paste into the AI tool
+    const prompt = buildResumePrompt();
+    await copyText(prompt);
+
     if (res.success) {
-      copyFeedback = `✅ Signal sent to ${toolLabel} — will auto-resume on next session start`;
+      copyFeedback = `✅ Signal sent + prompt copied — open ${toolLabel} and paste`;
     } else {
-      const context = buildResumePrompt();
-      await copyText(context);
-      copyFeedback = `⚠ Copy instead — paste into ${toolLabel}`;
+      copyFeedback = `✅ Prompt copied — open ${toolLabel} and paste`;
     }
-    setTimeout(() => { copyFeedback = ''; }, 5000);
+    showGuide = true;
   }
 
   function buildResumePrompt(): string {
@@ -232,11 +235,26 @@
         </div>
 
         {#if copyFeedback}
-          <div style="color:var(--success); font-size:13px;">{copyFeedback}</div>
+          <div style="color:var(--success); font-size:13px; margin-bottom:8px;">{copyFeedback}</div>
+        {/if}
+
+        <!-- Guide shown after clicking resume -->
+        {#if showGuide}
+          <div style="background:var(--bg-secondary); border-radius:8px; padding:12px; margin-top:8px;">
+            <div class="text-sm" style="font-weight:600; margin-bottom:8px;">📌 Next steps:</div>
+            <ol class="text-sm text-muted" style="margin:0; padding-left:20px;">
+              <li>Open your AI tool (Claude Code / OpenCode)</li>
+              <li>Paste the copied prompt into the chat</li>
+              <li>The AI will read the checkpoint and continue work</li>
+            </ol>
+            <div style="margin-top:8px;">
+              <button class="text-sm" style="background:none; border:none; color:var(--text-muted); cursor:pointer;" onclick={() => showGuide = false}>Close guide</button>
+            </div>
+          </div>
         {/if}
 
         <!-- Hook setup (collapsible) -->
-        <details>
+        <details style="margin-top:8px;">
           <summary class="text-sm text-muted" style="cursor:pointer;">First time? Set up auto-resume hooks</summary>
           <div style="margin-top:8px;">
             <div class="text-sm text-muted" style="margin-bottom:4px;">

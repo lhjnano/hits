@@ -62,8 +62,6 @@ def _tool_result(text: str) -> list[dict]:
 class HITSMCPServer:
     """MCP Server for HITS - runs over stdio."""
 
-    _last_notified_signals: set = set()
-
     TOOLS = [
         {
             "name": "hits_record_work",
@@ -487,21 +485,17 @@ class HITSMCPServer:
         tool_name = params.get("name", "")
         arguments = params.get("arguments", {})
 
-        # Check for new pending signals on every call
+        # Check for pending signals on every call
         prefix = ""
         try:
             sig_svc = SignalService()
-            project_path = arguments.get("project_path") or _detect_project_path()
-            signals = await sig_svc.check_signals(recipient="any", project_path=project_path)
-            new_ids = {s.id for s in signals} - self._last_notified_signals
-            if new_ids:
-                new_signals = [s for s in signals if s.id in new_ids]
-                lines = ["📬 HITS: New handover signal(s) detected!"]
-                for s in new_signals[:3]:
+            signals = await sig_svc.check_signals(recipient="any", limit=3)
+            if signals:
+                lines = ["📬 HITS: Pending handover signals!"]
+                for s in signals[:3]:
                     lines.append(f"  [{s.priority}] {s.sender}: {s.summary}")
                 lines.append("Call hits_resume() or hits_signal_check() to load context.")
                 prefix = "\n".join(lines) + "\n\n"
-                self._last_notified_signals.update(new_ids)
         except Exception:
             pass
 
