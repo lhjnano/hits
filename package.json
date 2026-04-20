@@ -37,6 +37,7 @@
     "server.js",
     "postinstall.js",
     "postinstall.cjs",
+    "pyproject.toml",
     "hits_core/**/*.py",
     "hits_core/**/__init__.py",
     "!hits_core/**/__pycache__",

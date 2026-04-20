@@ -65,8 +65,14 @@ function installOpenCode() {
   const OPENCODE_DIR = path.join(HOME, '.config', 'opencode');
   const configFile = path.join(OPENCODE_DIR, 'opencode.json');
 
+  // Only configure if OpenCode is already installed
+  if (!fs.existsSync(OPENCODE_DIR)) {
+    log('  ↩ OpenCode not detected, skipping');
+    return false;
+  }
+
   log('');
-  log('Installing OpenCode components...');
+  log('Configuring OpenCode...');
 
   // Read or create config
   let config = {};
@@ -80,6 +86,12 @@ function installOpenCode() {
     config = { $schema: 'https://opencode.ai/config.json', mcp: {} };
   }
   if (!config.mcp) config.mcp = {};
+
+  // Check if already registered
+  if (config.mcp['hits']) {
+    log('  ↩ hits MCP already registered in OpenCode');
+    return true;
+  }
 
   // Add hits MCP server
   config.mcp['hits'] = {
@@ -109,13 +121,19 @@ function installClaudeCode() {
   const CLAUDE_DIR = path.join(HOME, '.claude');
   const hooksSrc = path.join(ROOT, 'hooks');
 
+  // Only configure if Claude Code is already installed
+  if (!fs.existsSync(CLAUDE_DIR)) {
+    log('  ↩ Claude Code not detected, skipping');
+    return false;
+  }
+
   if (!fs.existsSync(hooksSrc)) {
     log('⚠  hooks/ directory not found, skipping Claude Code setup');
     return false;
   }
 
   log('');
-  log('Installing Claude Code hooks...');
+  log('Configuring Claude Code...');
 
   // Copy claude_signal_watcher.sh
   const claudeHook = path.join(hooksSrc, 'claude_signal_watcher.sh');
@@ -207,17 +225,80 @@ function main() {
     return;
   }
 
+  // Determine which tools to configure
+  // Usage: node postinstall.cjs [--claude] [--opencode] [--all] [--status]
+  const args = process.argv.slice(2);
+  const wantClaude = args.includes('--claude');
+  const wantOpenCode = args.includes('--opencode');
+  const wantAll = args.includes('--all');
+  const wantStatus = args.includes('--status');
+  const isAutoInstall = !wantClaude && !wantOpenCode && !wantAll && !wantStatus;
+
+  // --status: just print current state and exit
+  if (wantStatus) {
+    console.log('');
+    console.log('HITS Connection Status');
+    console.log('─'.repeat(30));
+    const claudeDir = path.join(HOME, '.claude');
+    const claudeSettings = path.join(claudeDir, 'settings.json');
+    const opencodeDir = path.join(HOME, '.config', 'opencode');
+    const opencodeConfig = path.join(opencodeDir, 'opencode.json');
+
+    // Claude Code
+    let claudeConnected = false;
+    if (fs.existsSync(claudeSettings)) {
+      try {
+        const s = JSON.parse(fs.readFileSync(claudeSettings, 'utf8'));
+        claudeConnected = s.hooks && s.hooks.SessionStart &&
+          s.hooks.SessionStart.some(h => h.command && h.command.includes('claude_signal_watcher'));
+      } catch {}
+    }
+    console.log(`  Claude Code:  ${claudeConnected ? '✅ connected' : '❌ not connected'}`);
+    if (fs.existsSync(path.join(claudeDir, 'hooks', 'claude_signal_watcher.sh'))) {
+      console.log(`                hook script installed`);
+    }
+
+    // OpenCode
+    let opencodeConnected = false;
+    if (fs.existsSync(opencodeConfig)) {
+      try {
+        const c = JSON.parse(fs.readFileSync(opencodeConfig, 'utf8'));
+        opencodeConnected = c.mcp && c.mcp['hits'];
+      } catch {}
+    }
+    console.log(`  OpenCode:     ${opencodeConnected ? '✅ connected' : '❌ not connected'}`);
+
+    // MCP
+    console.log(`  MCP Server:   npx -y -p @purpleraven/hits hits-mcp`);
+    console.log('');
+    return { claudeConnected, opencodeConnected };
+  }
+
+  // Auto-install (postinstall): only configure detected tools
+  const doClaude = wantClaude || wantAll || isAutoInstall;
+  const doOpenCode = wantOpenCode || wantAll || isAutoInstall;
+
   console.log('');
   console.log('╔══════════════════════════════════════╗');
-  console.log('║   HITS — Component Installer         ║');
+  console.log('║   HITS — Setup                        ║');
   console.log('╚══════════════════════════════════════╝');
 
   ensureHitsDataDir();
-  installOpenCode();
-  installClaudeCode();
+  const hasOpenCode = doOpenCode ? installOpenCode() : false;
+  const hasClaude = doClaude ? installClaudeCode() : false;
 
   console.log('');
-  console.log('Done! Restart OpenCode or Claude Code to activate.');
+  if (hasClaude || hasOpenCode) {
+    console.log('Done! Restart your AI tool to activate.');
+  } else if (isAutoInstall) {
+    console.log('Data directory created at ~/.hits/data/');
+    console.log('No AI tools detected — connect manually with:');
+    console.log('  npx @purpleraven/hits connect claude');
+    console.log('  npx @purpleraven/hits connect opencode');
+    console.log('  npx @purpleraven/hits connect --all');
+  } else {
+    console.log('No changes made.');
+  }
   console.log('');
 }
 

@@ -49,22 +49,22 @@ try:
     sig_id = d.get('id', '')
 
     lines = []
-    lines.append(f'📬 HITS 인수인계 시그널 감지!')
-    lines.append(f'  보낸이: {sender}')
-    lines.append(f'  유형: {sig_type}')
-    lines.append(f'  우선순위: {priority}')
-    lines.append(f'  요약: {summary}')
+    lines.append(f'📬 HITS handover signal detected!')
+    lines.append(f'  From: {sender}')
+    lines.append(f'  Type: {sig_type}')
+    lines.append(f'  Priority: {priority}')
+    lines.append(f'  Summary: {summary}')
     if pending:
-        lines.append(f'  미완료 항목:')
+        lines.append(f'  Pending items:')
         for item in pending[:5]:
             lines.append(f'    - {item}')
-    lines.append(f'  시그널 ID: {sig_id}')
+    lines.append(f'  Signal ID: {sig_id}')
     lines.append(f'')
-    lines.append(f'👉 hits_get_handover()로 전체 컨텍스트를 확인하고,')
-    lines.append(f'👉 hits_signal_consume(signal_id=\"{sig_id}\", consumed_by=\"opencode\")로 시그널을 소진하세요.')
+    lines.append(f'👉 Use hits_resume() to load full context.')
+    lines.append(f'👉 Use hits_signal_consume(signal_id="{sig_id}", consumed_by="opencode") to acknowledge.')
     print('\\n'.join(lines))
 except Exception as e:
-    print(f'시그널 읽기 오류: {e}')
+    print(f'Signal read error: {e}')
 " 2>/dev/null)
 
         if [ -n "$summary" ]; then
@@ -75,7 +75,7 @@ except Exception as e:
 done
 
 if [ "$FOUND" -eq 0 ]; then
-    echo "ℹ️ HITS: 대기 중인 인수인계 시그널이 없습니다." >&2
+    echo "ℹ️ HITS: No pending handover signals." >&2
 fi
 
 # ── Auto Resume ────────────────────────────────────────────
@@ -114,15 +114,15 @@ try:
     git_branch = d.get('git_branch', '')
 
     lines = []
-    lines.append('▶ HITS RESUME: 마지막 작업 상태')
-    lines.append(f'  목적: {purpose}')
-    lines.append(f'  진행: {pct}% (by {performer})')
+    lines.append('▶ HITS RESUME: Last session state')
+    lines.append(f'  Purpose: {purpose}')
+    lines.append(f'  Progress: {pct}% (by {performer})')
     if git_branch:
         lines.append(f'  git: {git_branch}')
     if state:
-        lines.append(f'  달성: {state}')
+        lines.append(f'  Achieved: {state}')
     if steps:
-        lines.append(f'  다음 단계:')
+        lines.append(f'  Next steps:')
         for i, s in enumerate(steps[:3], 1):
             action = s.get('action', '')
             cmd = s.get('command', '')
@@ -133,7 +133,7 @@ try:
                 line += f' → {cmd}'
             lines.append(line)
     lines.append('')
-    lines.append('👉 hits_resume()로 전체 컨텍스트를 확인하세요.')
+    lines.append('👉 Use hits_resume() to load full context.')
     print('\\n'.join(lines))
 except Exception as e:
     pass

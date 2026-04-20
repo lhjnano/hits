@@ -551,14 +551,14 @@ class HITSMCPServer:
 
         if success:
             return _tool_result(
-                f"✅ 작업 기록 완료\n"
+                f"✅ Work recorded\n"
                 f"  ID: {log.id}\n"
-                f"  프로젝트: {project_path}\n"
-                f"  수행자: {performed_by}\n"
-                f"  요약: {log.request_text}"
+                f"  Project: {project_path}\n"
+                f"  By: {performed_by}\n"
+                f"  Summary: {log.request_text}"
             )
         else:
-            return _tool_result("❌ 작업 기록 실패")
+            return _tool_result("❌ Failed to record work")
 
     async def _tool_get_handover(self, args: dict) -> list[dict]:
         project_path = args.get("project_path") or _detect_project_path()
@@ -585,9 +585,9 @@ class HITSMCPServer:
         )
 
         if not logs:
-            return _tool_result(f"검색 결과 없음: '{query}' (프로젝트: {project_path})")
+            return _tool_result(f"No results found: '{query}' (project: {project_path})")
 
-        lines = [f"검색 결과: '{query}' ({len(logs)}건)\n"]
+        lines = [f"Search results: '{query}' ({len(logs)} entries)\n"]
         for log in logs:
             ts = log.performed_at.strftime("%Y-%m-%d %H:%M")
             lines.append(f"[{ts}] ({log.performed_by}) {log.request_text or log.context}")
@@ -600,15 +600,15 @@ class HITSMCPServer:
         projects = await self.handover_service.list_projects()
 
         if not projects:
-            return _tool_result("기록된 프로젝트가 없습니다.")
+            return _tool_result("No projects recorded.")
 
-        lines = [f"프로젝트 목록 ({len(projects)}개)\n"]
+        lines = [f"Projects ({len(projects)})\n"]
         for p in projects:
             name = Path(p["project_path"]).name
             logs = p.get("total_logs", 0)
             last = p.get("last_activity", "N/A")
             performers = ", ".join(p.get("performers", {}).keys())
-            lines.append(f"  {name}: {logs}건 (마지막: {last}) [{performers}]")
+            lines.append(f"  {name}: {logs} entries (last: {last}) [{performers}]")
 
         return _tool_result("\n".join(lines))
 
@@ -625,9 +625,9 @@ class HITSMCPServer:
         )
 
         if not logs:
-            return _tool_result(f"최근 작업 없음 (프로젝트: {project_path})")
+            return _tool_result(f"No recent work (project: {project_path})")
 
-        lines = [f"최근 작업 ({len(logs)}건)\n"]
+        lines = [f"Recent work ({len(logs)} entries)\n"]
         for log in logs:
             ts = log.performed_at.strftime("%m/%d %H:%M")
             lines.append(f"[{ts}] ({log.performed_by}) {log.request_text or log.context}")
@@ -653,14 +653,14 @@ class HITSMCPServer:
         )
 
         return _tool_result(
-            f"🚨 시그널 전송 완료\n"
+            f"🚨 Signal sent\n"
             f"  ID: {signal.id}\n"
             f"  {signal.sender} → {signal.recipient}\n"
-            f"  유형: {signal.signal_type}\n"
-            f"  우선순위: {signal.priority}\n"
-            f"  프로젝트: {signal.project_path}\n"
-            f"  요약: {signal.summary}\n"
-            f"\n상대방 AI는 hits_signal_check() 또는 훅 스크립트로 감지합니다."
+            f"  Type: {signal.signal_type}\n"
+            f"  Priority: {signal.priority}\n"
+            f"  Project: {signal.project_path}\n"
+            f"  Summary: {signal.summary}\n"
+            f"\nThe recipient AI can detect via hits_signal_check() or hook script."
         )
 
     async def _tool_signal_check(self, args: dict) -> list[dict]:
@@ -676,21 +676,21 @@ class HITSMCPServer:
         )
 
         if not signals:
-            return _tool_result(f"대기 중인 시그널 없음 (recipient: {recipient}, project: {project_path})")
+            return _tool_result(f"No pending signals (recipient: {recipient}, project: {project_path})")
 
-        lines = [f"📬 대기 중인 시그널 ({len(signals)}개)\n"]
+        lines = [f"📬 Pending signals ({len(signals)})\n"]
         for sig in signals:
             ts = sig.created_at.strftime("%m/%d %H:%M")
             priority_icon = {"urgent": "🔴", "high": "🟡"}.get(sig.priority, "🟢")
             lines.append(f"  {priority_icon} [{ts}] {sig.sender} → {sig.recipient}")
             lines.append(f"     ID: {sig.id}")
-            lines.append(f"     유형: {sig.signal_type}")
-            lines.append(f"     요약: {sig.summary}")
+            lines.append(f"     Type: {sig.signal_type}")
+            lines.append(f"     Summary: {sig.summary}")
             if sig.pending_items:
-                lines.append(f"     미완료: {', '.join(sig.pending_items[:3])}")
+                lines.append(f"     Pending: {', '.join(sig.pending_items[:3])}")
             lines.append("")
 
-        lines.append("hits_signal_consume(signal_id, consumed_by)로 확인 가능")
+        lines.append("Use hits_signal_consume(signal_id, consumed_by) to acknowledge")
         return _tool_result("\n".join(lines))
 
     async def _tool_signal_consume(self, args: dict) -> list[dict]:
@@ -703,13 +703,13 @@ class HITSMCPServer:
         )
 
         if not signal:
-            return _tool_result(f"❌ 시그널을 찾을 수 없음: {signal_id}")
+            return _tool_result(f"❌ Signal not found: {signal_id}")
 
         return _tool_result(
-            f"✅ 시그널 확인 완료\n"
+            f"✅ Signal consumed\n"
             f"  ID: {signal.id}\n"
             f"  {signal.sender} → {consumed_by}\n"
-            f"  상태: consumed"
+            f"  Status: consumed"
         )
 
     # ─── Checkpoint Tools ──────────────────────────────────────
@@ -804,7 +804,7 @@ class HITSMCPServer:
         )
 
         return _tool_result(
-            f"✅ Auto-checkpoint 완료\n"
+            f"✅ Auto-checkpoint complete\n"
             f"  📝 Work log: {log.id}\n"
             f"  💾 Checkpoint: {checkpoint.id}\n"
             f"  📂 Project: {project_path}\n"
@@ -877,26 +877,26 @@ class HITSMCPServer:
 
         if not checkpoints:
             return _tool_result(
-                f"사용 가능한 체크포인트가 없습니다.\n"
-                f"프로젝트: {project_path}\n"
-                f"세션 종료 시 hits_auto_checkpoint()를 호출하면 자동 생성됩니다."
+                f"No checkpoints available.\n"
+                f"Project: {project_path}\n"
+                f"Call hits_auto_checkpoint() at session end to auto-generate."
             )
 
-        lines = [f"📍 Resume Points ({len(checkpoints)}개)\n"]
+        lines = [f"📍 Resume Points ({len(checkpoints)})\n"]
         for i, cp in enumerate(checkpoints, 1):
             ts = cp.created_at.strftime("%Y-%m-%d %H:%M")
             progress = "█" * (cp.completion_pct // 10) + "░" * (10 - cp.completion_pct // 10)
             lines.append(f"  {i}. [{ts}] {cp.performer}")
-            lines.append(f"     목적: {cp.purpose[:80]}")
-            lines.append(f"     진행: {progress} {cp.completion_pct}%")
+            lines.append(f"     purpose: {cp.purpose[:80]}")
+            lines.append(f"     progress: {progress} {cp.completion_pct}%")
             if cp.next_steps:
-                lines.append(f"     다음: {cp.next_steps[0].action[:60]}")
+                lines.append(f"     next: {cp.next_steps[0].action[:60]}")
             if cp.git_branch:
                 lines.append(f"     git: {cp.git_branch}")
             lines.append(f"     ID: {cp.id}")
             lines.append("")
 
-        lines.append(f"Resume: hits_resume() 또는 npx @purpleraven/hits resume")
+        lines.append(f"Resume: hits_resume() or npx @purpleraven/hits resume")
         return _tool_result("\n".join(lines))
 
     async def handle_request(self, request: dict) -> Optional[str]:

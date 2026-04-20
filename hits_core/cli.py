@@ -96,9 +96,9 @@ def cmd_resume(args):
                 progress = "█" * (pct // 10) + "░" * (10 - pct // 10)
                 print(f"  {i}. {name}")
                 print(f"     path: {p['project_path']}")
-                print(f"     진행: {progress} {pct}%  by {performer}  at {ts}")
+                print(f"     progress: {progress} {pct}%  by {performer}  at {ts}")
                 if purpose:
-                    print(f"     목적: {purpose}")
+                    print(f"     purpose: {purpose}")
                 if git:
                     print(f"     git: {git}")
                 print()
@@ -134,7 +134,7 @@ def cmd_resume(args):
             hs = HandoverService(storage=storage)
             summary = await hs.get_handover(project_path)
             text = summary.to_text()
-            if text.strip() and "기록된 작업이 없습니다" not in text:
+            if text.strip() and "No work logs found" not in text:
                 print(text)
             else:
                 print("No previous session data found for this project.")

@@ -47,8 +47,56 @@ const PYTHON_BIN = isWin
   ? join(ROOT, 'venv', 'Scripts', 'python.exe')
   : join(ROOT, 'venv', 'bin', 'python');
 
-// Check if first arg is 'resume' subcommand
+// Check if first arg is 'resume' or 'connect' subcommand
 const firstArg = process.argv[2];
+
+// ── connect subcommand ──────────────────────────────────────
+if (firstArg === 'connect') {
+  const connectArgs = process.argv.slice(3);
+  if (connectArgs.length === 0 || connectArgs.includes('--help') || connectArgs.includes('-h')) {
+    console.log(`
+HITS Connect — Connect HITS to your AI tools
+
+Usage:
+  npx @purpleraven/hits connect <tool>     Connect to a specific tool
+  npx @purpleraven/hits connect --all      Connect to all detected tools
+  npx @purpleraven/hits connect --status   Show connection status
+
+Tools:
+  claude        Configure Claude Code (hooks + MCP)
+  opencode      Configure OpenCode (MCP server)
+
+Examples:
+  npx @purpleraven/hits connect claude     # Set up Claude Code hooks
+  npx @purpleraven/hits connect opencode   # Register MCP in OpenCode
+  npx @purpleraven/hits connect --all      # Everything
+  npx @purpleraven/hits connect --status   # Check what's connected
+`);
+    process.exit(0);
+  }
+
+  // Run postinstall.cjs with the right flags
+  const postinstallPath = join(ROOT, 'postinstall.cjs');
+  let flag = '';
+  if (connectArgs.includes('--all')) flag = '--all';
+  else if (connectArgs.includes('--status')) flag = '--status';
+  else if (connectArgs[0] === 'claude') flag = '--claude';
+  else if (connectArgs[0] === 'opencode') flag = '--opencode';
+  else {
+    console.error(`Unknown tool: ${connectArgs[0]}. Use 'claude', 'opencode', '--all', or '--status'.`);
+    process.exit(1);
+  }
+
+  try {
+    execSync(`node ${postinstallPath} ${flag}`, { cwd: ROOT, stdio: 'inherit' });
+  } catch (err) {
+    console.error('Failed to connect. See errors above.');
+    process.exit(1);
+  }
+  process.exit(0);
+}
+
+// ── resume subcommand ───────────────────────────────────────
 if (firstArg === 'resume') {
   // Parse resume-specific args
   const resumeArgs = process.argv.slice(3);
@@ -95,11 +143,13 @@ Examples:
     execSync(`${pythonCmd} -m venv ${join(ROOT, 'venv')}`, { cwd: ROOT, stdio: 'inherit' });
   }
 
-  // Ensure deps
+  // Ensure deps — use requirements.txt since npm package may lack pyproject.toml
   try {
-    execSync(`${PYTHON_BIN} -c "import hits_core"`, { stdio: 'ignore' });
+    execSync(`${PYTHON_BIN} -c "import pydantic, fastapi"`, { stdio: 'ignore' });
   } catch {
-    execSync(`${PYTHON_BIN} -m pip install -q -e ${ROOT}`, { cwd: ROOT, stdio: 'inherit' });
+    console.error('Installing Python dependencies...');
+    execSync(`${PYTHON_BIN} -m pip install -q --upgrade pip`, { cwd: ROOT, stdio: 'inherit' });
+    execSync(`${PYTHON_BIN} -m pip install -q -r ${join(ROOT, 'requirements.txt')}`, { cwd: ROOT, stdio: 'inherit' });
   }
 
   // Build resume args
@@ -108,7 +158,7 @@ Examples:
   if (projectPath) pyArgs.push('--project', projectPath);
   if (tokenBudget) pyArgs.push('--token-budget', String(tokenBudget));
 
-  // Execute resume command
+  // Execute resume command with PYTHONPATH set to package root
   const result = execSync(`${PYTHON_BIN} ${pyArgs.join(' ')}`, {
     cwd: ROOT,
     encoding: 'utf-8',
@@ -136,6 +186,7 @@ HITS - Hybrid Intel Trace System
 Usage:
   npx @purpleraven/hits [options]
   npx @purpleraven/hits resume [options]
+  npx @purpleraven/hits connect <tool>
 
 Server Options:
   -p, --port <port>   Server port (default: 8765)
@@ -143,10 +194,16 @@ Server Options:
   -s, --setup         Install dependencies only
   -h, --help          Show this help
 
-Resume Options:
+Resume:
   npx @purpleraven/hits resume           Resume current project
   npx @purpleraven/hits resume -l        List all projects
   npx @purpleraven/hits resume -p /path  Resume specific project
+
+Connect:
+  npx @purpleraven/hits connect claude   Configure Claude Code
+  npx @purpleraven/hits connect opencode Configure OpenCode
+  npx @purpleraven/hits connect --all    Connect all tools
+  npx @purpleraven/hits connect --status Show connection status
 
 Environment:
   HITS_PORT           Server port override
