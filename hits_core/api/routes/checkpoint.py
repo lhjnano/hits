@@ -22,7 +22,6 @@ async def get_resume(
     project_path: str = Query(..., description="Project absolute path"),
     token_budget: int = Query(default=2000, description="Token budget"),
     performer: Optional[str] = Query(default=None, description="Tool name for consuming signals"),
-    _auth=Depends(require_auth),
 ):
     """Get latest checkpoint + pending signals for project resume."""
     result = {
@@ -65,7 +64,6 @@ async def get_latest_checkpoint(
     project_path: str = Query(..., description="Project absolute path"),
     token_budget: int = Query(default=2000, description="Token budget"),
     format: str = Query(default="text", description="Output format: text or json"),
-    _auth=Depends(require_auth),
 ):
     """Get the latest checkpoint for a project."""
     checkpoint = await _cp_service.get_latest_checkpoint(project_path)
@@ -83,7 +81,6 @@ async def get_latest_checkpoint(
 async def list_checkpoints(
     project_path: str = Query(..., description="Project absolute path"),
     limit: int = Query(default=10, description="Max results"),
-    _auth=Depends(require_auth),
 ):
     """List available checkpoints for a project."""
     checkpoints = await _cp_service.list_checkpoints(project_path, limit=limit)
@@ -210,9 +207,7 @@ async def auto_checkpoint(
 
 
 @router.get("/checkpoint/projects")
-async def list_checkpoint_projects(
-    _auth=Depends(require_auth),
-):
-    """List all projects with checkpoint history."""
+async def list_checkpoint_projects():
+    """List all projects with checkpoint history. No auth required — project names/paths only."""
     projects = await _cp_service.list_all_projects()
     return {"success": True, "data": projects}

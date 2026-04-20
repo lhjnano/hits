@@ -39,10 +39,31 @@
   });
 
   async function loadProjects() {
-    const res = await api.handover.projects();
-    if (res.success && res.data) {
-      projectsStore.value = res.data;
+    // Load from both handover (work logs) and checkpoints
+    const [handoverRes, checkpointRes] = await Promise.all([
+      api.handover.projects(),
+      api.checkpoints.projects(),
+    ]);
+
+    const handoverProjects = (handoverRes.success && handoverRes.data) ? handoverRes.data : [];
+    const checkpointProjects = (checkpointRes.success && checkpointRes.data) ? checkpointRes.data : [];
+
+    // Merge: checkpoint projects fill in where handover has no entry
+    const seen = new Set(handoverProjects.map((p: any) => p.project_path));
+    for (const cp of checkpointProjects) {
+      if (!seen.has(cp.project_path)) {
+        handoverProjects.push({
+          project_path: cp.project_path,
+          project_name: cp.project_name,
+          log_count: cp.checkpoint_count || 0,
+          last_activity: cp.last_activity || '',
+          performers: [cp.last_performer].filter(Boolean),
+        });
+        seen.add(cp.project_path);
+      }
     }
+
+    projectsStore.value = handoverProjects;
   }
 
   function handleOutsideClick(e: MouseEvent) {
