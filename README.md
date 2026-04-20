@@ -4,12 +4,12 @@
 
 ### **Your AI session died. Your work didn't.**
 
-**The checkpoint system for AI coding sessions. Token limits, session swaps, tool switches — pick up exactly where you left off.**
+**The checkpoint system for AI coding sessions. Token limits, session swaps, tool switches — pick up exactly where you left off, instantly.**
 
 [![npm version](https://img.shields.io/npm/v/@purpleraven/hits?color=blue&label=npm)](https://www.npmjs.com/package/@purpleraven/hits)
 [![license](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE)
 
-**`npx @purpleraven/hits`** — zero config, one command, you're running
+</div>
 
 ---
 
@@ -34,629 +34,195 @@
 
 **3 seconds to install → 1 second to checkpoint at session end → 0 seconds to resume next session**
 
-</div>
-
 ---
 
-## Sound Familiar?
+## How It Works — Two Commands, That's It
 
-> Working with Claude Code for hours... **Token limit reached.**  
-> A new session starts, but it has **no idea** what you did, what was decided, or what's left unfinished.
+```
+  ┌──────────────────────────────┐       ┌──────────────────────────────┐
+  │      Session End             │       │      Session Start           │
+  │                              │       │                              │
+  │   hits_auto_checkpoint()     │       │   $ npx @purpleraven/hits    │
+  │                              │       │         resume               │
+  │   ① Records your work        │  ───▶ │                              │
+  │   ② Saves structured context │       │   → Loads checkpoint         │
+  │   ③ Sends signal to next AI  │       │   → Checks pending signals   │
+  │   ④ Token-aware compression  │       │   → Full context restored    │
+  │                              │       │                              │
+  └──────────────────────────────┘       └──────────────────────────────┘
+```
 
-**HITS ends this:**
-
-| The Problem | HITS Solution |
-|------|-----------|
-| 🔴 Token limit kills your session | ✅ **Auto-checkpoint** — next session picks up exactly where you stopped |
-| 🔴 Switching AI tools (Claude ↔ OpenCode) | ✅ **Cross-tool signals** — real-time handover between any AI tool |
-| 🔴 No idea what to do next | ✅ **Actionable Next Steps** — with shell commands and file paths |
-| 🔴 Previous decisions forgotten | ✅ **Structured Decision log** — what was decided and why |
-| 🔴 Too much context, wasting tokens | ✅ **Token-aware compression** — fits your budget automatically |
+That's the whole loop. Your AI calls one tool when finishing, you run one command when starting. Everything else is automatic.
 
 ## Quick Start
 
-### 30 Seconds to Install
+### Install & Run
 
 ```bash
 npx @purpleraven/hits
 ```
 
-That single command will:
+Opens **http://127.0.0.1:8765** — create your admin account on first visit. Done.
 
-1. **Detect Python 3.10+** on your system
-2. **Create a virtual environment** automatically
-3. **Install Python dependencies** (FastAPI, Argon2id, etc.)
-4. **Start the Python backend** (FastAPI on port 8765)
-5. **Start the web server** (Express on port 8765)
-6. Open **http://127.0.0.1:8765** in your browser
-
-### Connect to Your AI (MCP) — This Is Where It Gets Good
+### Connect Your AI (MCP)
 
 ```bash
 # Claude Code
 claude mcp add hits -- npx -y -p @purpleraven/hits hits-mcp
 
-# OpenCode — ~/.config/opencode/mcp.json
-# Cursor, Copilot, or any MCP-compatible tool — same setup
+# Or add to .mcp.json / opencode config — see docs/mcp-tools.md
 ```
 
-**Once connected, your AI automatically:**
-- Calls `hits_auto_checkpoint()` at session end → records work + saves checkpoint + sends signal (1 second)
-- Calls `hits_resume()` or you run `npx @purpleraven/hits resume` at session start → full context restored (0 seconds)
+**Now your AI knows about checkpoints.** It will:
+- Auto-call `hits_auto_checkpoint()` when a session ends
+- Auto-call `hits_resume()` when a session starts
+- Or you can run `npx @purpleraven/hits resume` from the terminal
 
-### 🆕 Resume Where You Left Off
+### Resume Where You Left Off
+
+This is the core of HITS. Whenever you start a new session — because tokens ran out, you switched tools, or you're coming back tomorrow:
 
 ```bash
-# From your project directory
 cd ~/source/my-project
 npx @purpleraven/hits resume
-
-# Or via MCP tool
-hits_resume()   # → checkpoint + pending signals + full context in one call
 ```
 
-```
-📂 Resuming: /home/user/my-project
-──────────────────────────────────────────────────
+You get a **structured checkpoint** — not a vague summary, but actionable data:
 
-## CHECKPOINT: my-project
-path: /home/user/my-project
-git: feature/auth (3 changes)
-by: claude @ 2026-04-21 15:30
-progress: 60%
+| Field | What You See |
+|-------|-------------|
+| **Purpose** | What the previous session was trying to accomplish |
+| **Achieved** | What was actually done |
+| **Next Steps** | Priority-ordered actions with shell commands and file paths |
+| **Must Know** | Critical context the next session needs (decisions, constraints) |
+| **Files** | What was created, modified, or deleted |
+| **Blockers** | What's preventing progress, with known workarounds |
 
-PURPOSE: Implement JWT authentication system
-ACHIEVED: Argon2id hashing + JWT token issuance complete
+Everything is **token-aware compressed** — it fits within your AI's context budget automatically, dropping low-priority items first.
 
-NEXT STEPS:
-  1. 🟡 Add refresh token rotation → edit auth/manager.py
-  2. 🟢 Write auth middleware tests → pytest tests/
-
-MUST KNOW:
-  • Using Argon2id (not bcrypt)
-  • JWT expires after 15 minutes, stored in HttpOnly cookies
-
-FILES: [~] auth/manager.py  [+] tests/test_auth.py
-```
-
-### First Time Setup
-
-On first visit, you'll create an admin account:
-
-```
-┌──────────────────────────────────────┐
-│         🌳 HITS                      │
-│    Hybrid Intel Trace System         │
-│                                      │
-│  ┌────────────────────────────────┐  │
-│  │  Username: [____________]      │  │
-│  │  Password: [____________]      │  │
-│  │                                │  │
-│  │  [ Create Account ]            │  │
-│  │                                │  │
-│  │  First account = admin role    │  │
-│  └────────────────────────────────┘  │
-└──────────────────────────────────────┘
-```
-
-### Custom Port
+### List All Resume Points
 
 ```bash
-npx hits --port 9000
-# or
-HITS_PORT=9000 npx hits
+npx @purpleraven/hits resume --list
 ```
 
-## Requirements
+```
+📍 Resume Points (3 projects)
 
-| Requirement | Version | Why |
-|-------------|---------|-----|
-| **Node.js** | ≥ 18 | Runs the web server and manages the Python process |
-| **Python** | ≥ 3.10 | Runs the FastAPI backend (auto-installed into venv) |
+  1. auth-service
+     path: /home/user/auth-service
+     progress: ████████░░ 80%  by claude  at 2026-04-21T15:30
+     purpose: Implement JWT authentication
+     git: feature/auth
 
-That's it. No database required — HITS uses file-based storage at `~/.hits/data/`.
+  2. data-pipeline
+     path: /home/user/data-pipeline
+     progress: ████░░░░░░ 40%  by opencode  at 2026-04-20T09:15
+     purpose: Build ETL pipeline for analytics
+```
+
+## Why This Matters
+
+> Working with Claude Code for hours... **Token limit reached.**  
+> A new session starts, but it has **no idea** what you did, what was decided, or what's left.
+
+| The Problem | HITS Solution |
+|------|-----------|
+| 🔴 Token limit kills your session | ✅ **Auto-checkpoint** — next session picks up exactly where you stopped |
+| 🔴 Switching AI tools (Claude ↔ OpenCode ↔ Cursor) | ✅ **Cross-tool signals** — real-time handover between any AI |
+| 🔴 "What was I doing?" | ✅ **Actionable Next Steps** — with commands, not just descriptions |
+| 🔴 Previous decisions forgotten | ✅ **Structured Decision log** — what was decided and why |
+| 🔴 Too much context, wasting tokens | ✅ **Token-aware compression** — fits your budget automatically |
 
 ## What You Get
 
-### Web UI
+### 🆕 Resume Tab (Web UI)
+
+The default landing page — your latest checkpoint at a glance:
 
 ```
-┌─────────────┬───────────────────────────────────┐
-│  Sidebar    │  Header (tabs + user menu 🌐 lang) │
-│             ├───────────────────────────────────┤
-│  📂 Projects│                                   │
-│  ────────── │  Main content area                 │
-│  /project-a │                                   │
-│  /project-b │  📋 Knowledge | 📝 Timeline | 🔄 Handover │
-│  /project-c │                                   │
-│             │                                   │
-└─────────────┴───────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│  ▶ Resume   📋 Knowledge   📝 Timeline   🔄 Handover    │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  💾 my-project                          ██████░░ 60%    │
+│     Implement JWT authentication                        │
+│     🔀 feature/auth   claude   2026-04-21 15:30        │
+│                                                         │
+│  ▶ Next Steps                                           │
+│    1. 🟡 Add refresh token rotation                     │
+│       → edit auth/manager.py                            │
+│    2. 🟢 Write auth middleware tests                    │
+│       → pytest tests/                                   │
+│                                                         │
+│  ⚠ Must Know                                           │
+│    • Using Argon2id (not bcrypt)                        │
+│    • JWT expires after 15 minutes                       │
+│                                                         │
+│  📄 Files (3)                                           │
+│    [~] auth/manager.py  [~] middleware.py  [+] test.py  │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
 ```
 
-**Knowledge Tree** — Organize project knowledge as Why-How-What nodes:
+### Knowledge Tree
+
+Organize project knowledge as Why-How-What nodes with negative paths:
 
 ```
 📁 Authentication
   ├── WHY  "Need secure user auth for web UI"
   ├── HOW  "Argon2id hashing + JWT HttpOnly cookies"
   └── WHAT "POST /api/auth/login → Set-Cookie"
-      └── ❌ Negative Path: "Tried bcrypt first — too fast, GPU-vulnerable"
+      └── ❌ "Tried bcrypt first — too fast, GPU-vulnerable"
 ```
 
-**Timeline** — Chronological work log, grouped by date, filterable by project. Click any entry to expand full details (context, files modified, commands run).
+### Timeline
 
-**Handover** — Auto-generated summary of a project's context, ready to paste into a new AI session
+Chronological work log grouped by date. Click to expand context, files modified, commands run.
 
-**i18n** — Korean/English toggle (🌐 button in header), instant switch with auto-reload
+### Cross-Tool Signals
 
-### MCP Tools for AI Assistants
+Claude → OpenCode → Cursor. File-based, no server needed. Hooks auto-inject on session start.
 
-HITS includes an MCP server so your AI can read and write handover data directly. No need to clone the repo — it works right out of the npm package.
+## Requirements
 
-#### Register with Claude Code
+| Requirement | Version | Why |
+|-------------|---------|-----|
+| **Node.js** | ≥ 18 | Runs the web server |
+| **Python** | ≥ 3.10 | Runs the FastAPI backend (auto-installed) |
+
+No database. File-based storage at `~/.hits/data/`.
+
+## CLI
 
 ```bash
-claude mcp add hits -- npx -y -p @purpleraven/hits hits-mcp
+npx @purpleraven/hits                       # Start web server
+npx @purpleraven/hits resume                # Resume current project
+npx @purpleraven/hits resume -l             # List all resume points
+npx @purpleraven/hits resume -p /path       # Resume specific project
+npx @purpleraven/hits resume -t 1000        # Limit output to ~1000 tokens
+npx @purpleraven/hits --port 9000           # Custom port
 ```
 
-Or add to `.mcp.json` in your project root:
-
-```json
-{
-  "mcpServers": {
-    "hits": {
-      "command": "npx",
-      "args": ["-y", "-p", "@purpleraven/hits", "hits-mcp"]
-    }
-  }
-}
-```
-
-#### Register with OpenCode (`~/.config/opencode/mcp.json`)
-
-```json
-{
-  "mcpServers": {
-    "hits": {
-      "command": "npx",
-      "args": ["-y", "-p", "@purpleraven/hits", "hits-mcp"]
-    }
-  }
-}
-```
-
-> **Important:** You must use `npx -p @purpleraven/hits hits-mcp` (specify the package), not just `npx hits-mcp`. The `hits-mcp` binary is inside the `@purpleraven/hits` package.
->
-> **How it works:** `npx` downloads the package, auto-detects Python, creates a venv, installs dependencies, and spawns the MCP server over stdio — all automatically on first run.
-
-#### 11 MCP Tools
-
-**🆕 Checkpoint Tools (Recommended — one-call automation):**
-
-| Tool | What It Does |
-|------|-------------|
-| `hits_auto_checkpoint` | **Session end, one call** — records work + saves checkpoint + sends signal |
-| `hits_resume` | **Session start, one call** — loads checkpoint + checks signals + auto-consumes |
-| `hits_list_checkpoints` | List checkpoint history per project (select resume point) |
-
-**Core Tools:**
-
-| Tool | What It Does |
-|------|-------------|
-| `hits_record_work` | Record a work entry (auto-detects project path from CWD) |
-| `hits_get_handover` | Get handover summary for the current project |
-| `hits_search_works` | Search past work by keyword |
-| `hits_list_projects` | List all projects with recorded work |
-| `hits_get_recent` | Get the most recent work entries |
-
-**Signal Tools (cross-tool handover):**
-
-| Tool | What It Does |
-|------|-------------|
-| `hits_signal_send` | Send a handover signal to another AI tool (Claude↔OpenCode) |
-| `hits_signal_check` | Check for pending signals addressed to you |
-| `hits_signal_consume` | Acknowledge and archive a signal |
-
-#### Example AI Workflow
-
-```
-User: "Continue working on the auth system"
-
-AI (auto-calls hits_get_handover):
-  → Previous session added Argon2id password hashing
-  → Decisions: Argon2id (not bcrypt), JWT HS256, HttpOnly cookies
-  → Pending: Rate limiting, password change endpoint
-
-AI: "I see the auth system uses Argon2id + JWT. Let me add rate limiting..."
-
-(later)
-
-AI (auto-calls hits_record_work):
-  → Recorded: "Added rate limiting (10 req/min on login endpoint)"
-```
-
-### REST API
-
-All features are also accessible via HTTP API:
-
-```bash
-# Health check
-curl http://localhost:8765/api/health
-
-# Record work (source is required)
-curl -X POST http://localhost:8765/api/work-log \
-  -H "Content-Type: application/json" \
-  -b cookies.txt \
-  -d '{
-    "performed_by": "claude",
-    "source": "ai_session",
-    "request_text": "Added rate limiting to login endpoint",
-    "context": "10 req/min per IP, 429 response on limit",
-    "project_path": "/home/user/my-project",
-    "tags": ["security", "api"]
-  }'
-
-# Get handover summary
-curl "http://localhost:8765/api/handover?project_path=/home/user/my-project" \
-  -b cookies.txt
-
-# Search past work
-curl "http://localhost:8765/api/work-logs/search?q=auth" \
-  -b cookies.txt
-```
-
-## Security
-
-HITS is built with security as a first-class concern:
-
-| Feature | Implementation |
-|---------|---------------|
-| **Password Hashing** | Argon2id (64MB memory, 3 iterations, parallelism=1) |
-| **JWT Tokens** | HttpOnly + Secure + SameSite=Lax cookies |
-| **Access Token** | 15-minute expiry |
-| **Refresh Token** | 7-day expiry, restricted to `/api/auth/refresh` path |
-| **Brute Force Protection** | 10 login attempts/minute per IP |
-| **Security Headers** | CSP, X-Frame-Options: DENY, HSTS preload, nosniff |
-| **Data Protection** | Auth files stored with `chmod 600` (owner-only) |
-| **First User Policy** | First registered user becomes admin; subsequent users need admin approval |
-
-## How It Works Under the Hood
-
-```
-npx hits
-  │
-  ├── 1. findPython()       → Detect Python 3.10+ on system
-  ├── 2. setupPython()      → Create venv, install deps
-  ├── 3. startBackend()     → Spawn FastAPI process (port 8765)
-  └── 4. startExpress()     → Serve frontend + proxy /api → FastAPI
-
-  Browser                    Express (8765)           FastAPI (8765 internal)
-     │                           │                         │
-     ├── GET /             ───→  static (Svelte SPA)       │
-     ├── GET /some/route   ───→  SPA fallback              │
-     └── GET /api/*        ───→  proxy  ──────────────→   FastAPI routes
-         POST /api/*       ───→  proxy  ──────────────→   FastAPI routes
-```
-
-All data is stored centrally:
-
-```
-~/.hits/
-├── data/                ← All project data
-│   ├── work_logs/       ← AI session work logs (JSON)
-│   ├── trees/           ← Knowledge trees
-│   └── workflows/       ← Workflows
-├── backups/             ← CLI backups (tar.gz)
-├── .auth/               ← User accounts (chmod 700)
-│   └── users.json       ← User data (chmod 600)
-├── .pepper              ← HMAC pepper (chmod 600)
-└── .jwt_secret          ← JWT signing key (chmod 600)
-
-Override with HITS_DATA_PATH environment variable
-```
-
-## CLI Options
-
-### Node.js (npx)
-
-```
-npx hits [options]
-
-Options:
-  -p, --port <port>   Server port (default: 8765)
-  -d, --dev           Development mode (verbose logging)
-  -s, --setup         Install dependencies only, don't start
-  -h, --help          Show help
-
-Environment:
-  HITS_PORT           Server port override
-  HITS_PYTHON         Path to python executable (default: auto-detect)
-  HITS_DATA_PATH      Data storage path (default: ~/.hits/data)
-```
-
-### Python CLI (hits)
-
-```bash
-# Start web server
-hits                  # or: hits server
-hits server --port 9000 --dev
-
-# Backup & restore
-hits backup           # Backup all data to ~/.hits/backups/
-hits backup --list    # List available backups
-hits restore          # Restore latest backup (with auto-backup of current state)
-hits restore -n 1     # Restore specific backup by number
-
-# Status
-hits status           # Show accounts, work logs, trees, backups
-```
-
-Installed via `pip install -e .` or automatically with `npx hits`.
-
-## API Reference
-
-### Authentication
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/auth/status` | Check if auth is initialized, current login status |
-| POST | `/api/auth/register` | Register user (first user = admin) |
-| POST | `/api/auth/login` | Login — sets HttpOnly cookies |
-| POST | `/api/auth/logout` | Logout — clears cookies |
-| POST | `/api/auth/refresh` | Refresh access token |
-| GET | `/api/auth/me` | Get current user info |
-| PUT | `/api/auth/password` | Change password |
-
-### Work Logs
-
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/work-log` | Create work log |
-| GET | `/api/work-logs` | List logs (filter by `project_path`) |
-| GET | `/api/work-logs/search?q=...` | Search logs by keyword |
-| GET | `/api/work-log/{id}` | Get single entry |
-| PUT | `/api/work-log/{id}` | Update entry |
-| DELETE | `/api/work-log/{id}` | Delete entry |
-
-### Handover
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/handover?project_path=...` | Get project handover summary |
-| GET | `/api/handover/projects` | List all projects |
-| GET | `/api/handover/project-stats?project_path=...` | Get project statistics |
-
-### Knowledge
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/knowledge/categories` | List categories |
-| POST | `/api/knowledge/category` | Create category |
-| PUT | `/api/knowledge/category/{name}` | Update category |
-| DELETE | `/api/knowledge/category/{name}` | Delete category |
-| POST | `/api/knowledge/category/{name}/nodes` | Add node to category |
-| PUT | `/api/knowledge/category/{name}/nodes/{idx}` | Update node |
-| DELETE | `/api/knowledge/category/{name}/nodes/{idx}` | Delete node |
-
-### Signals (Cross-Tool Handover)
-
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/signals/send` | Send a handover signal to another AI tool |
-| GET | `/api/signals/check` | Check pending signals (filter by recipient, project) |
-| POST | `/api/signals/consume` | Consume (acknowledge) a signal |
-| GET | `/api/signals/pending` | List all pending signals |
-| DELETE | `/api/signals/{signal_id}` | Delete a signal |
-
-```bash
-# Send signal (Claude → OpenCode)
-curl -X POST http://localhost:8765/api/signals/send \
-  -H "Content-Type: application/json" \
-  -d '{"sender":"claude","recipient":"opencode","summary":"JWT auth done","pending_items":["rate limiting"]}'
-
-# Check pending signals
-curl "http://localhost:8765/api/signals/check?recipient=opencode"
-
-# Consume signal
-curl -X POST http://localhost:8765/api/signals/consume \
-  -H "Content-Type: application/json" \
-  -d '{"signal_id":"sig_abc12345","consumed_by":"opencode"}'
-```
-
-## Cross-Tool Handover Signals
-
-HITS provides a file-based signal system for real-time handover between AI tools (Claude ↔ OpenCode ↔ Cursor). No running server required — signals are just JSON files in `~/.hits/data/signals/`.
-
-### How It Works
-
-```
-┌─────────────────┐     ~/.hits/data/signals/pending/     ┌─────────────────┐
-│   Claude Code   │  ──── claude_to_opencode.json ────►  │    OpenCode     │
-│                 │                                       │                 │
-│  hits_signal_   │                                       │  hook detects   │
-│  send()         │                                       │  signal file    │
-│                 │                                       │  hits_signal_   │
-│                 │  ◄──── opencode_to_claude.json ─────  │  check()        │
-└─────────────────┘                                       └─────────────────┘
-```
-
-### MCP Signal Tools
-
-```python
-# 1. Send signal at session end (Claude → OpenCode)
-hits_signal_send(
-    sender="claude",
-    recipient="opencode",        # or "any" for broadcast
-    summary="JWT auth implementation done, rate limiting remaining",
-    pending_items=["Add rate limiting", "Configure CORS"],
-    priority="high"              # normal | high | urgent
-)
-
-# 2. Check signals at session start
-hits_signal_check(recipient="opencode")
-# → 🟡 [04/14 14:30] claude → opencode
-#    Summary: JWT auth implementation done, rate limiting remaining
-#    Pending: Add rate limiting, Configure CORS
-
-# 3. Consume signal (acknowledge)
-hits_signal_consume(signal_id="sig_abc12345", consumed_by="opencode")
-```
-
-### Hook Setup (Automatic Detection)
-
-Instead of manually calling `hits_signal_check`, configure hooks so signals are **automatically injected** when a session starts.
-
-#### Claude Code — SessionStart Hook
-
-`~/.claude/settings.json`:
-
-```json
-{
-  "hooks": {
-    "SessionStart": [
-      {
-        "type": "command",
-        "command": "bash <(npx -y -p @purpleraven/hits cat hooks/claude_signal_watcher.sh)"
-      }
-    ]
-  }
-}
-```
-
-Or install the hook script locally:
-
-```bash
-mkdir -p ~/.claude/hooks
-npx -y -p @purpleraven/hits cat hooks/claude_signal_watcher.sh > ~/.claude/hooks/hits_signal_watcher.sh
-chmod +x ~/.claude/hooks/hits_signal_watcher.sh
-```
-
-Then reference it:
-
-```json
-{
-  "hooks": {
-    "SessionStart": [
-      {
-        "type": "command",
-        "command": "~/.claude/hooks/hits_signal_watcher.sh"
-      }
-    ]
-  }
-}
-```
-
-When Claude starts a session, it will see:
-
-```
-📬 HITS handover signal detected!
-  From: opencode
-  Type: session_end
-  Priority: high
-  Summary: LVM DR script debugging complete
-  Pending items:
-    - Test remote backup
-    - Write CronJob manifest
-  Signal ID: sig_fb5bd38c
-
-👉 Use hits_get_handover() to load full context,
-👉 Use hits_signal_consume(signal_id="sig_fb5bd38c", consumed_by="claude") to acknowledge.
-```
-
-#### OpenCode — SessionStart Hook
-
-`~/.config/opencode/opencode.json` or project `.opencode/hooks/`:
-
-```bash
-mkdir -p ~/.opencode/hooks
-npx -y -p @purpleraven/hits cat hooks/opencode_signal_watcher.sh > ~/.opencode/hooks/hits_signal_watcher.sh
-chmod +x ~/.opencode/hooks/hits_signal_watcher.sh
-```
-
-Configure as a startup hook in your OpenCode settings.
-
-### Signal Directory Structure
-
-```
-~/.hits/data/signals/
-├── pending/                              ← Active signals
-│   └── claude_to_opencode_20260414_143022_sig_fb5bd38c.json
-└── consumed/                             ← Archived (auto-cleaned after 72h)
-    └── opencode_to_claude_20260414_130000_sig_a1b2c3d4.json
-```
-
-### Full Handover Flow
-
-```
-1. Claude session ends:
-   → hits_record_work()       # Record work
-   → hits_signal_send()       # Send signal to OpenCode
-
-2. OpenCode session starts:
-   → Hook auto-detects signal (injected via stderr)
-   → hits_get_handover()      # Load full context
-   → hits_signal_consume()    # Acknowledge signal
-
-3. OpenCode session ends:
-   → hits_record_work()
-   → hits_signal_send(sender="opencode", recipient="claude")
-```
-
-## Troubleshooting
-
-### "Python 3.10+ not found"
-
-Install Python 3.10 or later:
-```bash
-# Ubuntu/Debian
-sudo apt install python3.12
-
-# macOS
-brew install python@3.12
-
-# Or set manually:
-export HITS_PYTHON=/usr/bin/python3.12
-```
-
-### "Frontend not built"
-
-This shouldn't happen with the npm package (frontend is pre-built). If it does:
-```bash
-npx hits --setup
-```
-
-### "ModuleNotFoundError: No module named 'hits_core'"
-
-Python dependencies failed to install. Try:
-```bash
-npx hits --setup
-```
-
-### Redis Connection Failed
-
-Not a problem — HITS automatically uses file-based storage. Redis is optional.
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [MCP Tools Reference](docs/mcp-tools.md) | All 11 MCP tools with parameters and examples |
+| [REST API Reference](docs/api-reference.md) | Full API endpoint documentation |
+| [Architecture](docs/architecture.md) | How it works under the hood, data storage, security |
+| [Cross-Tool Signals](docs/signals.md) | Signal system, hooks setup, Claude/OpenCode/Cursor |
 
 ## Development
-
-If you're working on HITS itself:
 
 ```bash
 git clone https://github.com/lhjnano/hits.git
 cd hits
-
-# Backend setup
-python3 -m venv venv
-source venv/bin/activate
+python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
-
-# Frontend build
 cd hits_web && npm install && npm run build && cd ..
-
-# Development mode (Vite HMR + FastAPI)
 ./run.sh --dev
-
-# Run tests
-./run.sh --test
 ```
 
 ## License
@@ -665,5 +231,6 @@ Apache 2.0 — free for commercial use.
 
 ## Links
 
+- **npm**: [https://www.npmjs.com/package/@purpleraven/hits](https://www.npmjs.com/package/@purpleraven/hits)
 - **GitHub**: [https://github.com/lhjnano/hits](https://github.com/lhjnano/hits)
 - **Issues**: [https://github.com/lhjnano/hits/issues](https://github.com/lhjnano/hits/issues)

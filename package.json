@@ -1,14 +1,18 @@
 {
   "name": "@purpleraven/hits",
   "version": "1.0.0",
-  "description": "HITS - Hybrid Intel Trace System. AI session handover with secure web UI.",
+  "description": "Your AI session died. Your work didn't. The checkpoint system for AI coding sessions — token limits, session swaps, tool switches, pick up where you left off.",
   "keywords": [
-    "knowledge-management",
     "ai",
-    "session-handover",
+    "checkpoint",
+    "session-resume",
+    "token-limit",
     "mcp",
+    "handover",
+    "claude-code",
     "opencode",
-    "claude-code"
+    "cursor",
+    "knowledge-management"
   ],
   "license": "Apache-2.0",
   "author": "HITS Team",
@@ -39,8 +43,10 @@
     "!hits_core/**/*.pyc",
     "!hits_core/**/*.pyo",
     "hits_web/dist/",
+    "hooks/",
     "config/",
     "data/dev_handover.yaml",
+    "docs/",
     "requirements.txt",
     "requirements-core.txt",
     "run.sh",
