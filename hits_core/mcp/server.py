@@ -62,6 +62,8 @@ def _tool_result(text: str) -> list[dict]:
 class HITSMCPServer:
     """MCP Server for HITS - runs over stdio."""
 
+    _initial_check_done = False
+
     TOOLS = [
         {
             "name": "hits_record_work",
@@ -485,6 +487,23 @@ class HITSMCPServer:
         tool_name = params.get("name", "")
         arguments = params.get("arguments", {})
 
+        # Auto-check for pending signals on first tool call
+        prefix = ""
+        if not self._initial_check_done:
+            self._initial_check_done = True
+            try:
+                sig_svc = SignalService()
+                project_path = arguments.get("project_path") or _detect_project_path()
+                signals = await sig_svc.check_signals(recipient="any", project_path=project_path)
+                if signals:
+                    lines = ["📬 Pending handover signals detected on startup:"]
+                    for s in signals[:3]:
+                        lines.append(f"  [{s.priority}] {s.sender}: {s.summary}")
+                    lines.append("Call hits_resume() or hits_signal_check() to load context.")
+                    prefix = "\n".join(lines) + "\n\n"
+            except Exception:
+                pass
+
         try:
             if tool_name == "hits_record_work":
                 result = await self._tool_record_work(arguments)
@@ -513,6 +532,10 @@ class HITSMCPServer:
                     id_val,
                     error={"code": -32601, "message": f"Unknown tool: {tool_name}"},
                 )
+
+            # Prepend signal notification if any
+            if prefix and result:
+                result[0]["text"] = prefix + result[0]["text"]
 
             return _json_rpc_response(
                 id_val,
