@@ -21,6 +21,7 @@
   let activeTab: 'knowledge' | 'timeline' | 'handover' | 'resume' = $state('resume');
   let sidebarOpen = $state(true);
   let langLabel = $state(altLangLabel());
+  let projects: any[] = $state([]);
   // Counter to force re-render when locale changes
   let localeTick = $state(0);
 
@@ -64,6 +65,7 @@
     }
 
     projectsStore.value = handoverProjects;
+    projects = handoverProjects;
   }
 
   function handleOutsideClick(e: MouseEvent) {
@@ -123,12 +125,12 @@
       <h2 style="font-size:14px; color:var(--text-primary);">📁 {t('header.projects')}</h2>
     </div>
     <div class="overflow-y" style="flex:1;">
-      {#if projectsStore.value.length === 0}
+      {#if projects.length === 0}
         <div class="p-md text-muted text-sm" style="text-align:center;">
           {t('sidebar.noProjects')}
         </div>
       {:else}
-        {#each projectsStore.value as project}
+        {#each projects as project}
           <div
             class="project-item"
             class:selected={uiStore.value.selectedProject === project.project_path}
