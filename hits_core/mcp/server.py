@@ -62,7 +62,7 @@ def _tool_result(text: str) -> list[dict]:
 class HITSMCPServer:
     """MCP Server for HITS - runs over stdio."""
 
-    _initial_check_done = False
+    _last_notified_signals: set = set()
 
     TOOLS = [
         {
@@ -487,22 +487,23 @@ class HITSMCPServer:
         tool_name = params.get("name", "")
         arguments = params.get("arguments", {})
 
-        # Auto-check for pending signals on first tool call
+        # Check for new pending signals on every call
         prefix = ""
-        if not self._initial_check_done:
-            self._initial_check_done = True
-            try:
-                sig_svc = SignalService()
-                project_path = arguments.get("project_path") or _detect_project_path()
-                signals = await sig_svc.check_signals(recipient="any", project_path=project_path)
-                if signals:
-                    lines = ["📬 Pending handover signals detected on startup:"]
-                    for s in signals[:3]:
-                        lines.append(f"  [{s.priority}] {s.sender}: {s.summary}")
-                    lines.append("Call hits_resume() or hits_signal_check() to load context.")
-                    prefix = "\n".join(lines) + "\n\n"
-            except Exception:
-                pass
+        try:
+            sig_svc = SignalService()
+            project_path = arguments.get("project_path") or _detect_project_path()
+            signals = await sig_svc.check_signals(recipient="any", project_path=project_path)
+            new_ids = {s.id for s in signals} - self._last_notified_signals
+            if new_ids:
+                new_signals = [s for s in signals if s.id in new_ids]
+                lines = ["📬 HITS: New handover signal(s) detected!"]
+                for s in new_signals[:3]:
+                    lines.append(f"  [{s.priority}] {s.sender}: {s.summary}")
+                lines.append("Call hits_resume() or hits_signal_check() to load context.")
+                prefix = "\n".join(lines) + "\n\n"
+                self._last_notified_signals.update(new_ids)
+        except Exception:
+            pass
 
         try:
             if tool_name == "hits_record_work":
@@ -957,6 +958,7 @@ class HITSMCPServer:
             asyncio.streams.FlowControlMixin, sys.stdout
         )
         writer = asyncio.StreamWriter(writer_transport, writer_protocol, reader, asyncio.get_event_loop())
+        self._writer = writer
 
         while True:
             try:
