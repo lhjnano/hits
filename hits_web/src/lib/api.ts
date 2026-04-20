@@ -172,4 +172,16 @@ export const api = {
     deleteNode: (category: string, index: number) =>
       request(`/knowledge/category/${encodeURIComponent(category)}/nodes/${index}`, { method: 'DELETE' }),
   },
+
+  // Signals
+  signals: {
+    send: (data: Record<string, unknown>) =>
+      request('/signals/send', { method: 'POST', body: JSON.stringify(data) }),
+    check: (recipient?: string, project_path?: string) => {
+      const q = new URLSearchParams();
+      if (recipient) q.set('recipient', recipient);
+      if (project_path) q.set('project_path', project_path);
+      return request(`/signals/check?${q}`);
+    },
+  },
 };

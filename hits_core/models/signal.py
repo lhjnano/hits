@@ -20,7 +20,7 @@ class SignalType(str, Enum):
 
 
 # 지원하는 AI 도구 식별자
-VALID_PERFORMERS = {"claude", "opencode", "cursor", "copilot", "manual", "unknown"}
+VALID_PERFORMERS = {"claude", "opencode", "cursor", "copilot", "manual", "web-ui", "unknown"}
 
 
 class HandoverSignal(BaseModel):

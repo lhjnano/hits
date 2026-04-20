@@ -146,3 +146,34 @@ except Exception as e:
 " 2>/dev/null | while IFS= read -r line; do echo "$line" >&2; done
     fi
 fi
+
+# ── Background Signal Watcher ────────────────────────────────
+# Poll for new signals every 30s in background (if not already running)
+WATCHER_MARKER="/tmp/hits_signal_watcher_claude_$$.pid"
+
+if [ -z "$HITS_WATCHER_RUNNING" ]; then
+    export HITS_WATCHER_RUNNING=1
+    
+    _watch_signals() {
+        while true; do
+            sleep 30
+            for sig_file in "$SIGNALS_DIR"/*.json; do
+                [ -f "$sig_file" ] || continue
+                recipient=$(python3 -c "
+import json
+try:
+    d = json.load(open('$sig_file'))
+    print(d.get('recipient', 'any'))
+except: print('any')
+" 2>/dev/null)
+                if [ "$recipient" = "$RECIPIENT" ] || [ "$recipient" = "any" ]; then
+                    echo "📬 HITS: New handover signal detected! Run hits_resume() or hits_signal_check() to load." >&2
+                    break
+                fi
+            done
+        done
+    }
+    
+    _watch_signals &
+    echo "$!" > "$WATCHER_MARKER"
+fi

@@ -5,7 +5,6 @@
   import { authStore, projectsStore, uiStore } from '../lib/stores';
   import KnowledgeTree from './KnowledgeTree.svelte';
   import Timeline from './Timeline.svelte';
-  import HandoverPanel from './HandoverPanel.svelte';
   import ResumePanel from './ResumePanel.svelte';
 
   let { onLogout } = $props<{ onLogout: () => void }>();
@@ -18,10 +17,11 @@
   let passwordError = $state('');
   let passwordSuccess = $state('');
   let refreshing = $state(false);
-  let activeTab: 'knowledge' | 'timeline' | 'handover' | 'resume' = $state('resume');
+  let activeTab: 'knowledge' | 'timeline' | 'resume' = $state('resume');
   let sidebarOpen = $state(true);
   let langLabel = $state(altLangLabel());
   let projects: any[] = $state([]);
+  let selectedProject = $state('');
   // Counter to force re-render when locale changes
   let localeTick = $state(0);
 
@@ -87,7 +87,7 @@
   }
 
   function selectProject(path: string) {
-    uiStore.value = { ...uiStore.value, selectedProject: path };
+    selectedProject = path;
   }
 
   async function handleChangePassword() {
@@ -113,7 +113,7 @@
     }
   }
 
-  function switchTab(tab: 'knowledge' | 'timeline' | 'handover' | 'resume') {
+  function switchTab(tab: 'knowledge' | 'timeline' | 'resume') {
     activeTab = tab;
   }
 </script>
@@ -133,7 +133,7 @@
         {#each projects as project}
           <div
             class="project-item"
-            class:selected={uiStore.value.selectedProject === project.project_path}
+            class:selected={selectedProject === project.project_path}
             role="button"
             tabindex="0"
             onclick={() => selectProject(project.project_path)}
@@ -175,9 +175,6 @@
         <button class="tab" class:active={activeTab === 'timeline'} onclick={() => switchTab('timeline')}>
           📝 {t('header.timeline')}
         </button>
-        <button class="tab" class:active={activeTab === 'handover'} onclick={() => switchTab('handover')}>
-          🔄 {t('header.handover')}
-        </button>
       </div>
 
       <div style="flex:1;"></div>
@@ -213,13 +210,11 @@
     <!-- Content -->
     <div class="content-area">
       {#if activeTab === 'resume'}
-        <ResumePanel />
+        <ResumePanel bind:selectedProject />
       {:else if activeTab === 'knowledge'}
         <KnowledgeTree />
       {:else if activeTab === 'timeline'}
         <Timeline />
-      {:else if activeTab === 'handover'}
-        <HandoverPanel />
       {/if}
     </div>
   </div>
