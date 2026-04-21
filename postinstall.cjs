@@ -159,13 +159,20 @@ function installClaudeCode() {
 
   const hookCommand = `bash ${path.join(CLAUDE_DIR, 'hooks', 'claude_signal_watcher.sh')}`;
   const alreadyRegistered = settings.hooks.SessionStart.some(
-    h => h.command && h.command.includes('claude_signal_watcher')
+    entry => entry.hooks && entry.hooks.some(
+      h => h.command && h.command.includes('claude_signal_watcher')
+    )
   );
 
   if (!alreadyRegistered) {
     settings.hooks.SessionStart.push({
-      type: 'command',
-      command: hookCommand,
+      matcher: '',
+      hooks: [
+        {
+          type: 'command',
+          command: hookCommand,
+        }
+      ],
     });
 
     if (fs.existsSync(settingsFile)) {
@@ -250,7 +257,9 @@ function main() {
       try {
         const s = JSON.parse(fs.readFileSync(claudeSettings, 'utf8'));
         claudeConnected = s.hooks && s.hooks.SessionStart &&
-          s.hooks.SessionStart.some(h => h.command && h.command.includes('claude_signal_watcher'));
+          s.hooks.SessionStart.some(entry => entry.hooks && entry.hooks.some(
+            h => h.command && h.command.includes('claude_signal_watcher')
+          ));
       } catch {}
     }
     console.log(`  Claude Code:  ${claudeConnected ? '✅ connected' : '❌ not connected'}`);
