@@ -58,7 +58,10 @@ const PYTHON_BIN = isWin
 
 function runCommand(cmd, args, opts = {}) {
   return new Promise((resolve, reject) => {
-    const proc = spawn(cmd, args, { stdio: 'inherit', ...opts });
+    // CRITICAL: Use 'pipe' for stdin to prevent child processes from
+    // consuming MCP protocol messages that Claude Code has already written.
+    // Only stdout/stderr are inherited for logging visibility.
+    const proc = spawn(cmd, args, { stdio: ['pipe', 'inherit', 'inherit'], ...opts });
     proc.on('close', (code) => {
       if (code === 0) resolve();
       else reject(new Error(`Command failed: ${cmd} ${args.join(' ')} (exit ${code})`));
@@ -101,9 +104,11 @@ async function main() {
   await ensurePython();
 
   // Spawn Python MCP server with stdio transport
+  // stdin/stdout MUST be 'inherit' for MCP JSON-RPC communication.
+  // stderr is inherited for Python error/logging output.
   const proc = spawn(PYTHON_BIN, ['-m', 'hits_core.mcp.server'], {
     cwd: ROOT,
-    stdio: 'inherit',  // stdin/stdout/stderr all connected to parent (MCP stdio)
+    stdio: ['inherit', 'inherit', 'inherit'],
     env: {
       ...process.env,
       PYTHONPATH: ROOT,

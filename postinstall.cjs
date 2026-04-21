@@ -186,8 +186,38 @@ function installClaudeCode() {
     log('  ↩ SessionStart hook already registered');
   }
 
+  // Register HITS MCP server for Claude Code (~/.claude.json)
+  const claudeJsonFile = path.join(HOME, '.claude.json');
+  let claudeJson = {};
+  if (fs.existsSync(claudeJsonFile)) {
+    try {
+      claudeJson = JSON.parse(fs.readFileSync(claudeJsonFile, 'utf8'));
+    } catch {
+      claudeJson = {};
+    }
+  }
+  if (!claudeJson.mcpServers) claudeJson.mcpServers = {};
+
+  if (claudeJson.mcpServers['hits']) {
+    log('  ↩ hits MCP already registered in Claude Code');
+  } else {
+    claudeJson.mcpServers['hits'] = {
+      type: 'stdio',
+      command: 'npx',
+      args: ['-y', '-p', '@purpleraven/hits', 'hits-mcp'],
+    };
+
+    if (fs.existsSync(claudeJsonFile)) {
+      fs.copyFileSync(claudeJsonFile, claudeJsonFile + `.backup.${Date.now()}`);
+    }
+
+    ensureDir(path.dirname(claudeJsonFile));
+    fs.writeFileSync(claudeJsonFile, JSON.stringify(claudeJson, null, 2));
+    log('  ✓ ~/.claude.json updated (hits MCP server registered)');
+  }
+
   log('');
-  log(`✓ Claude Code hooks installed`);
+  log(`✓ Claude Code configured (hooks + MCP)`);
   return true;
 }
 
@@ -266,6 +296,16 @@ function main() {
     if (fs.existsSync(path.join(claudeDir, 'hooks', 'claude_signal_watcher.sh'))) {
       console.log(`                hook script installed`);
     }
+    // Check Claude MCP
+    const claudeJsonFile = path.join(HOME, '.claude.json');
+    let claudeMcp = false;
+    if (fs.existsSync(claudeJsonFile)) {
+      try {
+        const cj = JSON.parse(fs.readFileSync(claudeJsonFile, 'utf8'));
+        claudeMcp = cj.mcpServers && cj.mcpServers['hits'];
+      } catch {}
+    }
+    console.log(`                MCP: ${claudeMcp ? '✅ registered' : '❌ not registered'}`);
 
     // OpenCode
     let opencodeConnected = false;
