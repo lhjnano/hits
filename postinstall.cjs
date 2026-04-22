@@ -144,7 +144,16 @@ function installClaudeCode() {
     log('  ✓ hooks/claude_signal_watcher.sh');
   }
 
-  // Update Claude Code settings.json to register the hook
+  // Copy claude_auto_recorder.sh (Stop hook for auto-recording work logs)
+  const autoRecorder = path.join(hooksSrc, 'claude_auto_recorder.sh');
+  if (fs.existsSync(autoRecorder)) {
+    const dest = path.join(CLAUDE_DIR, 'hooks', 'claude_auto_recorder.sh');
+    copyFile(autoRecorder, dest);
+    fs.chmodSync(dest, 0o755);
+    log('  ✓ hooks/claude_auto_recorder.sh');
+  }
+
+  // Update Claude Code settings.json to register hooks
   const settingsFile = path.join(CLAUDE_DIR, 'settings.json');
   let settings = {};
   if (fs.existsSync(settingsFile)) {
@@ -155,6 +164,8 @@ function installClaudeCode() {
     }
   }
   if (!settings.hooks) settings.hooks = {};
+
+  // --- SessionStart hook (signal detection) ---
   if (!settings.hooks.SessionStart) settings.hooks.SessionStart = [];
 
   const hookCommand = `bash ${path.join(CLAUDE_DIR, 'hooks', 'claude_signal_watcher.sh')}`;
@@ -174,17 +185,44 @@ function installClaudeCode() {
         }
       ],
     });
-
-    if (fs.existsSync(settingsFile)) {
-      fs.copyFileSync(settingsFile, settingsFile + `.backup.${Date.now()}`);
-    }
-
-    ensureDir(path.dirname(settingsFile));
-    fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2));
-    log('  ✓ settings.json updated (SessionStart hook registered)');
+    log('  ✓ SessionStart hook registered');
   } else {
     log('  ↩ SessionStart hook already registered');
   }
+
+  // --- Stop hook (auto-record work logs when Claude finishes responding) ---
+  if (!settings.hooks.Stop) settings.hooks.Stop = [];
+
+  const recorderCommand = `bash ${path.join(CLAUDE_DIR, 'hooks', 'claude_auto_recorder.sh')}`;
+  const recorderRegistered = settings.hooks.Stop.some(
+    entry => entry.hooks && entry.hooks.some(
+      h => h.command && h.command.includes('claude_auto_recorder')
+    )
+  );
+
+  if (!recorderRegistered) {
+    settings.hooks.Stop.push({
+      matcher: '',
+      hooks: [
+        {
+          type: 'command',
+          command: recorderCommand,
+        }
+      ],
+    });
+    log('  ✓ Stop hook registered (auto-record)');
+  } else {
+    log('  ↩ Stop hook already registered');
+  }
+
+  // Write settings
+  if (fs.existsSync(settingsFile)) {
+    fs.copyFileSync(settingsFile, settingsFile + `.backup.${Date.now()}`);
+  }
+
+  ensureDir(path.dirname(settingsFile));
+  fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2));
+  log('  ✓ settings.json updated');
 
   // Register HITS MCP server for Claude Code (~/.claude.json)
   const claudeJsonFile = path.join(HOME, '.claude.json');
