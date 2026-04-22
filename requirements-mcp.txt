@@ -1,0 +1,4 @@
+# Minimal dependencies for HITS MCP Server (hits-mcp)
+# Only includes what the MCP stdio server actually needs.
+# Full deps (fastapi, uvicorn, argon2, etc.) are in requirements-core.txt for the web server.
+pydantic>=2.0.0

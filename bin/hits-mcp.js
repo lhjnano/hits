@@ -84,16 +84,18 @@ async function ensurePython() {
     await runCommand(pythonCmd, ['-m', 'venv', VENV_DIR], { cwd: ROOT });
   }
 
-  // Check if deps are installed
+  // Check if minimal MCP deps are installed (only pydantic is needed for MCP server)
   try {
     execSync(
-      `${PYTHON_BIN} -c "import fastapi, pydantic, argon2, jose"`,
+      `${PYTHON_BIN} -c "import pydantic"`,
       { stdio: 'ignore' }
     );
   } catch {
-    console.error('[hits-mcp] Installing Python dependencies...');
-    await runCommand(PYTHON_BIN, ['-m', 'pip', 'install', '-q', '--upgrade', 'pip'], { cwd: ROOT });
-    await runCommand(PYTHON_BIN, ['-m', 'pip', 'install', '-q', '-r', join(ROOT, 'requirements.txt')], { cwd: ROOT });
+    console.error('[hits-mcp] Installing MCP dependencies (pydantic)...');
+    // Use minimal requirements for MCP server, NOT the full web server deps
+    const mcpReqs = join(ROOT, 'requirements-mcp.txt');
+    const reqFile = existsSync(mcpReqs) ? mcpReqs : join(ROOT, 'requirements-core.txt');
+    await runCommand(PYTHON_BIN, ['-m', 'pip', 'install', '-q', '-r', reqFile], { cwd: ROOT });
     console.error('[hits-mcp] Dependencies installed.');
   }
 }

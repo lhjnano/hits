@@ -50,6 +50,7 @@
     "docs/",
     "requirements.txt",
     "requirements-core.txt",
+    "requirements-mcp.txt",
     "run.sh",
     "AGENTS.md"
   ],
