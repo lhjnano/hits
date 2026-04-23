@@ -359,7 +359,19 @@ function main() {
   }
 
   // Determine which tools to configure
-  // Usage: node postinstall.cjs [--claude] [--opencode] [--all] [--status]
+  // Usage:
+  //   node postinstall.cjs                    → auto-detect & install
+  //   node postinstall.cjs --claude           → Claude Code only
+  //   node postinstall.cjs --opencode         → OpenCode only
+  //   node postinstall.cjs --all              → all tools
+  //   node postinstall.cjs --status           → show connection status
+  //   node postinstall.cjs --install          → explicit install
+  //
+  // CLI wrapper (bin/hits.js) handles the user-facing pattern:
+  //   npx @purpleraven/hits connect claude    → calls this with --claude
+  //   npx @purpleraven/hits connect opencode  → calls this with --opencode
+  //   npx @purpleraven/hits connect --all     → calls this with --all
+  //   npx @purpleraven/hits connect --status  → calls this with --status
   const args = process.argv.slice(2);
   const wantClaude = args.includes('--claude');
   const wantOpenCode = args.includes('--opencode');
