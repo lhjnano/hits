@@ -24,6 +24,7 @@ class WorkLogResultType(str, Enum):
     COMMAND = "command"
     NONE = "none"
     AI_RESPONSE = "ai_response"
+    SUMMARY = "summary"
 
 
 class WorkLog(BaseModel):
@@ -45,6 +46,9 @@ class WorkLog(BaseModel):
     
     context: Optional[str] = Field(default=None, description="Why this action was taken")
     tags: list[str] = Field(default_factory=list, description="Tags for search")
+    
+    files_modified: list[str] = Field(default_factory=list, description="Files modified during this session")
+    commands_run: list[str] = Field(default_factory=list, description="Commands executed during this session")
     
     project_path: Optional[str] = Field(default=None, description="Project directory if applicable")
     
