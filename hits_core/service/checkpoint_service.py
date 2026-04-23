@@ -11,6 +11,7 @@ Key improvements over HandoverService:
 4. Chained: checkpoints link to parent checkpoints for history
 """
 
+import json
 import os
 import subprocess
 from datetime import datetime
@@ -406,18 +407,66 @@ class CheckpointService:
             return None
 
     async def get_latest_checkpoint(self, project_path: str) -> Optional[Checkpoint]:
-        """Get the most recent checkpoint for a project."""
+        """Get the most recent checkpoint for a project.
+        
+        Supports two formats:
+        - latest.json: Full Checkpoint object (from _save_checkpoint)
+        - _latest.json: Pointer {id, file, created_at} (from Stop hook)
+        Also falls back to the most recent *.json file if no latest pointer exists.
+        """
         project_dir = self._checkpoint_dir / project_path.replace("/", "_")
+        
+        if not project_dir.exists():
+            return None
+        
+        # Try latest.json (full checkpoint, from _save_checkpoint)
         latest_path = project_dir / "latest.json"
-
-        if not latest_path.exists():
-            return None
-
+        if latest_path.exists():
+            try:
+                with open(latest_path, "r", encoding="utf-8") as f:
+                    return Checkpoint.model_validate_json(f.read())
+            except Exception:
+                pass
+        
+        # Try _latest.json (pointer, from Stop hook)
+        pointer_path = project_dir / "_latest.json"
+        if pointer_path.exists():
+            try:
+                with open(pointer_path, "r", encoding="utf-8") as f:
+                    pointer = json.load(f)
+                
+                # pointer has either 'file' (absolute path) or 'id'
+                cp_file = pointer.get("file")
+                if cp_file:
+                    cp_path = Path(cp_file)
+                else:
+                    cp_id = pointer.get("id")
+                    if cp_id:
+                        cp_path = project_dir / f"{cp_id}.json"
+                    else:
+                        cp_path = None
+                
+                if cp_path and cp_path.exists():
+                    with open(cp_path, "r", encoding="utf-8") as f:
+                        return Checkpoint.model_validate_json(f.read())
+            except Exception:
+                pass
+        
+        # Fallback: find most recent checkpoint file (exclude latest.json/_latest.json)
         try:
-            with open(latest_path, "r", encoding="utf-8") as f:
-                return Checkpoint.model_validate_json(f.read())
+            candidates = [
+                p for p in project_dir.glob("*.json")
+                if p.name not in ("latest.json", "_latest.json", "index.json")
+            ]
+            if candidates:
+                # Sort by modification time, most recent first
+                candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+                with open(candidates[0], "r", encoding="utf-8") as f:
+                    return Checkpoint.model_validate_json(f.read())
         except Exception:
-            return None
+            pass
+        
+        return None
 
     async def list_checkpoints(self, project_path: str, limit: int = 10) -> list[Checkpoint]:
         """List checkpoints for a project, most recent first."""
@@ -426,7 +475,10 @@ class CheckpointService:
             return []
 
         checkpoints = []
-        for path in sorted(project_dir.glob("cp_*.json"), reverse=True):
+        for path in sorted(project_dir.glob("*.json"), reverse=True):
+            # Skip non-checkpoint files
+            if path.name in ("latest.json", "_latest.json", "index.json"):
+                continue
             try:
                 with open(path, "r", encoding="utf-8") as f:
                     cp = Checkpoint.model_validate_json(f.read())
@@ -448,15 +500,42 @@ class CheckpointService:
 
             # Read latest checkpoint for project info
             latest_path = project_dir / "latest.json"
-            if not latest_path.exists():
+            pointer_path = project_dir / "_latest.json"
+            
+            cp = None
+            # Try latest.json (full checkpoint)
+            if latest_path.exists():
+                try:
+                    with open(latest_path, "r", encoding="utf-8") as f:
+                        cp = Checkpoint.model_validate_json(f.read())
+                except Exception:
+                    pass
+            
+            # Try _latest.json (pointer)
+            if cp is None and pointer_path.exists():
+                try:
+                    with open(pointer_path, "r", encoding="utf-8") as f:
+                        pointer = json.load(f)
+                    cp_file = pointer.get("file")
+                    if cp_file:
+                        from pathlib import Path as P
+                        cp_path = P(cp_file)
+                    else:
+                        cp_id = pointer.get("id")
+                        cp_path = project_dir / f"{cp_id}.json" if cp_id else None
+                    if cp_path and cp_path.exists():
+                        with open(cp_path, "r", encoding="utf-8") as f:
+                            cp = Checkpoint.model_validate_json(f.read())
+                except Exception:
+                    pass
+            
+            if cp is None:
                 continue
 
             try:
-                with open(latest_path, "r", encoding="utf-8") as f:
-                    cp = Checkpoint.model_validate_json(f.read())
-
-                # Count checkpoints
-                cp_count = sum(1 for p in project_dir.glob("cp_*.json"))
+                # Count checkpoints (exclude meta files)
+                cp_count = sum(1 for p in project_dir.glob("*.json")
+                               if p.name not in ("latest.json", "_latest.json", "index.json"))
 
                 projects.append({
                     "project_path": cp.project_path,

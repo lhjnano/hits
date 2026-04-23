@@ -69,13 +69,13 @@ class Checkpoint(BaseModel):
     This is the evolution of HandoverSummary - instead of a passive summary,
     it's an executable snapshot that the next AI session can immediately act on.
     """
-    model_config = ConfigDict(use_enum_values=True)
+    model_config = ConfigDict(use_enum_values=True, extra="ignore")
 
     # Identity
-    id: str = Field(..., description="Unique checkpoint ID (cp_xxxxxxxx)")
+    id: str = Field(..., description="Unique checkpoint ID")
     project_path: str = Field(..., description="Project absolute path")
     project_name: str = Field(default="", description="Human-readable project name")
-    performer: str = Field(..., description="Who created this checkpoint (claude/opencode/etc)")
+    performer: str = Field(default="stop-hook", description="Who created this checkpoint (claude/opencode/etc)")
     created_at: datetime = Field(default_factory=datetime.now)
 
     # Git context
