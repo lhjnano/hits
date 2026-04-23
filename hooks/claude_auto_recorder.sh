@@ -2,14 +2,15 @@
 # ──────────────────────────────────────────────────────────────
 # HITS Auto-Recorder for Claude Code
 #
-# Run from Claude Code Stop hook:
-#   When Claude finishes responding, this script automatically
-#   records a work log entry via the HITS Python backend.
+# Run from Claude Code Stop hook.
+# Reads the user's prompt saved by UserPromptSubmit hook.
+# Falls back to transcript parsing, then to "Claude Code session".
 #
 # Input: JSON on stdin from Claude Code (Stop event)
 # ──────────────────────────────────────────────────────────────
 
 HITS_DIR="$HOME/.hits/data/work_logs"
+PROMPT_DIR="$HOME/.hits/data/tmp"
 
 # Read hook input from stdin
 INPUT=$(cat)
@@ -57,9 +58,20 @@ for i in $(seq 1 10); do
     current="$parent"
 done
 
-# Extract last user prompt from transcript for request_text
+# ── Get request_text (3 fallback levels) ─────────────────────
+
 REQUEST_TEXT=""
-if [ -n "$TRANSCRIPT_PATH" ] && [ -f "$TRANSCRIPT_PATH" ]; then
+
+# Level 1: Read prompt saved by UserPromptSubmit hook
+if [ -z "$REQUEST_TEXT" ] && [ -n "$SESSION_ID" ]; then
+    PROMPT_FILE="$PROMPT_DIR/prompt_${SESSION_ID}.txt"
+    if [ -f "$PROMPT_FILE" ]; then
+        REQUEST_TEXT=$(head -c 200 "$PROMPT_FILE" 2>/dev/null)
+    fi
+fi
+
+# Level 2: Parse transcript (last human message)
+if [ -z "$REQUEST_TEXT" ] && [ -n "$TRANSCRIPT_PATH" ] && [ -f "$TRANSCRIPT_PATH" ]; then
     REQUEST_TEXT=$(python3 -c "
 import json, sys
 try:
@@ -70,23 +82,17 @@ try:
             if not line: continue
             try:
                 msg = json.loads(line)
-                # Claude Code transcript format: {"type": "human", "message": {"content": ...}}
-                # or {"role": "user", "content": ...}
                 content = None
 
-                # Format 1: type=human with nested message
                 if msg.get('type') == 'human':
                     m = msg.get('message', {})
                     content = m.get('content', '') if isinstance(m, dict) else ''
-
-                # Format 2: role=user
                 elif msg.get('role') == 'user':
                     content = msg.get('content', '')
 
                 if content is None:
                     continue
 
-                # Handle content as list of blocks
                 if isinstance(content, list):
                     texts = []
                     for c in content:
@@ -105,13 +111,13 @@ except: pass
 " 2>/dev/null)
 fi
 
+# Level 3: Fallback
 if [ -z "$REQUEST_TEXT" ]; then
     REQUEST_TEXT="Claude Code session"
 fi
 
-# Count tool uses from transcript for context
+# Count tool uses from transcript
 TOOL_COUNT=0
-FILES_MODIFIED=""
 if [ -n "$TRANSCRIPT_PATH" ] && [ -f "$TRANSCRIPT_PATH" ]; then
     TOOL_COUNT=$(grep -c '"tool_name"\|"type":"tool_use"\|"type":"tool_result"' "$TRANSCRIPT_PATH" 2>/dev/null || true)
 fi
@@ -128,11 +134,10 @@ LOG_FILE="$HITS_DIR/${LOG_ID}.json"
 
 python3 -c "
 import json, sys
-request_text = sys.argv[1]
 log = {
-    'id': sys.argv[2],
+    'id': sys.argv[1],
     'source': 'ai_session',
-    'request_text': request_text,
+    'request_text': sys.argv[2],
     'performed_by': 'claude',
     'performed_at': sys.argv[3],
     'project_path': sys.argv[4],
@@ -144,34 +149,26 @@ log = {
 }
 with open(sys.argv[6], 'w') as f:
     json.dump(log, f, indent=2, ensure_ascii=False)
-" "$REQUEST_TEXT" "$LOG_ID" "$TIMESTAMP" "$PROJECT_PATH" "$CONTEXT" "$LOG_FILE" 2>/dev/null
+" "$LOG_ID" "$REQUEST_TEXT" "$TIMESTAMP" "$PROJECT_PATH" "$CONTEXT" "$LOG_FILE" 2>/dev/null
 
-# Update index — use list[str] format to match file_store.py
+# Update index — list[str] format (matches file_store.py)
 INDEX_FILE="$HITS_DIR/index.json"
 python3 -c "
 import json, sys
 try:
-    # Read existing index (supports both list and dict formats)
     with open('$INDEX_FILE') as f:
         data = json.load(f)
-
-    # Normalize to list[str] format (file_store.py format)
     if isinstance(data, dict):
         entries = [e['id'] if isinstance(e, dict) else e for e in data.get('entries', [])]
     elif isinstance(data, list):
         entries = data
     else:
         entries = []
-
-    # Append new entry
     if '$LOG_ID' not in entries:
         entries.append('$LOG_ID')
-
-    # Write as list[str]
     with open('$INDEX_FILE', 'w') as f:
         json.dump(entries, f)
-except Exception as e:
-    # If index file doesn't exist or is corrupt, create fresh
+except:
     try:
         import os
         os.makedirs('$HITS_DIR', exist_ok=True)
@@ -181,5 +178,9 @@ except Exception as e:
         pass
 " 2>/dev/null
 
-# Silent success - no output to avoid cluttering Claude's context
+# Clean up prompt temp file
+if [ -n "$SESSION_ID" ]; then
+    rm -f "$PROMPT_DIR/prompt_${SESSION_ID}.txt" 2>/dev/null
+fi
+
 exit 0

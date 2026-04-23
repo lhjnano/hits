@@ -153,6 +153,15 @@ function installClaudeCode() {
     log('  ✓ hooks/claude_auto_recorder.sh');
   }
 
+  // Copy claude_prompt_capture.sh (UserPromptSubmit hook)
+  const promptCapture = path.join(hooksSrc, 'claude_prompt_capture.sh');
+  if (fs.existsSync(promptCapture)) {
+    const dest = path.join(CLAUDE_DIR, 'hooks', 'claude_prompt_capture.sh');
+    copyFile(promptCapture, dest);
+    fs.chmodSync(dest, 0o755);
+    log('  ✓ hooks/claude_prompt_capture.sh');
+  }
+
   // Update Claude Code settings.json to register hooks
   const settingsFile = path.join(CLAUDE_DIR, 'settings.json');
   let settings = {};
@@ -213,6 +222,31 @@ function installClaudeCode() {
     log('  ✓ Stop hook registered (auto-record)');
   } else {
     log('  ↩ Stop hook already registered');
+  }
+
+  // --- UserPromptSubmit hook (capture user's prompt for request_text) ---
+  if (!settings.hooks.UserPromptSubmit) settings.hooks.UserPromptSubmit = [];
+
+  const captureCommand = `bash ${path.join(CLAUDE_DIR, 'hooks', 'claude_prompt_capture.sh')}`;
+  const captureRegistered = settings.hooks.UserPromptSubmit.some(
+    entry => entry.hooks && entry.hooks.some(
+      h => h.command && h.command.includes('claude_prompt_capture')
+    )
+  );
+
+  if (!captureRegistered) {
+    settings.hooks.UserPromptSubmit.push({
+      matcher: '',
+      hooks: [
+        {
+          type: 'command',
+          command: captureCommand,
+        }
+      ],
+    });
+    log('  ✓ UserPromptSubmit hook registered (prompt capture)');
+  } else {
+    log('  ↩ UserPromptSubmit hook already registered');
   }
 
   // Write settings
