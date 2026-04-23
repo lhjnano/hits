@@ -249,6 +249,30 @@ function installClaudeCode() {
     log('  ↩ UserPromptSubmit hook already registered');
   }
 
+  // --- StopFailure hook (record work log when session ends with error, e.g. token limit) ---
+  if (!settings.hooks.StopFailure) settings.hooks.StopFailure = [];
+
+  const stopFailureRegistered = settings.hooks.StopFailure.some(
+    entry => entry.hooks && entry.hooks.some(
+      h => h.command && h.command.includes('claude_auto_recorder')
+    )
+  );
+
+  if (!stopFailureRegistered) {
+    settings.hooks.StopFailure.push({
+      matcher: '',
+      hooks: [
+        {
+          type: 'command',
+          command: recorderCommand,
+        }
+      ],
+    });
+    log('  ✓ StopFailure hook registered (auto-record on error/token limit)');
+  } else {
+    log('  ↩ StopFailure hook already registered');
+  }
+
   // Write settings
   if (fs.existsSync(settingsFile)) {
     fs.copyFileSync(settingsFile, settingsFile + `.backup.${Date.now()}`);
