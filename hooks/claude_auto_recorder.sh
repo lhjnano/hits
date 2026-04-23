@@ -392,4 +392,29 @@ if [ -n "$SESSION_ID" ]; then
     rm -f "$PROMPT_DIR/prompt_${SESSION_ID}.txt" 2>/dev/null
 fi
 
+# ── Trigger knowledge extraction ──────────────────────────────
+# Async: fire and forget, don't block the hook
+# Tries local HITS server first, falls back to direct Python extraction
+
+HITS_PORT="${HITS_PORT:-8765}"
+
+# Try API first (fast, no Python startup if server is running)
+curl -s -X POST "http://localhost:${HITS_PORT}/api/knowledge/extract" \
+    -H "Content-Type: application/json" \
+    -d "{\"log_id\": \"${LOG_ID}\"}" > /dev/null 2>&1 &
+
+# Also try direct extraction as fallback (for when server isn't running)
+python3 -c "
+import sys, json, os
+sys.path.insert(0, os.path.expanduser('~/.hits'))
+try:
+    from pathlib import Path
+    sys.path.insert(0, str(Path.home() / 'node_modules' / '@purpleraven' / 'hits'))
+    from hits_core.service.knowledge_extractor import KnowledgeExtractor
+    ext = KnowledgeExtractor()
+    ext.extract_from_work_log('${LOG_ID}')
+except:
+    pass
+" 2>/dev/null &
+
 exit 0

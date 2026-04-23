@@ -20,6 +20,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
 
 from hits_core.service.knowledge_service import KnowledgeService, KnowledgeNode
+from hits_core.service.knowledge_extractor import KnowledgeExtractor
 from hits_core.auth.dependencies import require_auth
 
 
@@ -175,3 +176,40 @@ async def delete_node(
     if not success:
         return APIResponse(success=False, error="Node not found")
     return APIResponse(success=True, data={"deleted_index": node_index})
+
+
+# --- Auto-extract from work logs ---
+
+class ExtractRequest(BaseModel):
+    log_id: Optional[str] = Field(None, description="Specific work log ID to extract from")
+    project_path: Optional[str] = Field(None, description="Extract from latest checkpoint for this project")
+    extract_all: bool = Field(False, description="Extract from all unprocessed work logs")
+
+
+@router.post("/knowledge/extract", response_model=APIResponse)
+async def extract_knowledge(body: ExtractRequest = ExtractRequest()):
+    """Extract knowledge from work logs / checkpoints and add to knowledge tree.
+
+    This endpoint can be called:
+    - With log_id: extract from a specific work log
+    - With project_path: extract from latest checkpoint
+    - With extract_all: process all unprocessed work logs
+
+    No auth required — called by Stop hooks.
+    """
+    extractor = KnowledgeExtractor()
+
+    if body.log_id:
+        count = extractor.extract_from_work_log(body.log_id)
+        return APIResponse(success=True, data={"log_id": body.log_id, "nodes_added": count})
+
+    if body.project_path:
+        count = extractor.extract_from_checkpoint(body.project_path)
+        return APIResponse(success=True, data={"project_path": body.project_path, "nodes_added": count})
+
+    if body.extract_all:
+        results = extractor.extract_all_unprocessed()
+        total = sum(results.values())
+        return APIResponse(success=True, data={"total_nodes_added": total, "by_project": results})
+
+    return APIResponse(success=False, error="Provide log_id, project_path, or extract_all=true")
