@@ -10,7 +10,6 @@
 # ──────────────────────────────────────────────────────────────
 
 HITS_DIR="$HOME/.hits/data/work_logs"
-SIGNALS_DIR="$HOME/.hits/data/signals/pending"
 
 # Read hook input from stdin
 INPUT=$(cat)
@@ -71,19 +70,37 @@ try:
             if not line: continue
             try:
                 msg = json.loads(line)
-                if msg.get('type') == 'human' or msg.get('role') == 'user':
-                    content = msg.get('message', {})
-                    if isinstance(content, dict):
-                        content = content.get('content', '')
-                    if isinstance(content, list):
-                        content = ' '.join(
-                            c.get('text', '') for c in content
-                            if isinstance(c, dict) and c.get('type') == 'text'
-                        )
-                    if content:
-                        last_human = str(content)[:200]
+                # Claude Code transcript format: {"type": "human", "message": {"content": ...}}
+                # or {"role": "user", "content": ...}
+                content = None
+
+                # Format 1: type=human with nested message
+                if msg.get('type') == 'human':
+                    m = msg.get('message', {})
+                    content = m.get('content', '') if isinstance(m, dict) else ''
+
+                # Format 2: role=user
+                elif msg.get('role') == 'user':
+                    content = msg.get('content', '')
+
+                if content is None:
+                    continue
+
+                # Handle content as list of blocks
+                if isinstance(content, list):
+                    texts = []
+                    for c in content:
+                        if isinstance(c, dict) and c.get('type') == 'text':
+                            texts.append(c.get('text', ''))
+                        elif isinstance(c, str):
+                            texts.append(c)
+                    content = ' '.join(texts)
+
+                if content and str(content).strip():
+                    last_human = str(content).strip()[:200]
             except: pass
-    print(last_human)
+    if last_human:
+        print(last_human)
 except: pass
 " 2>/dev/null)
 fi
@@ -96,7 +113,7 @@ fi
 TOOL_COUNT=0
 FILES_MODIFIED=""
 if [ -n "$TRANSCRIPT_PATH" ] && [ -f "$TRANSCRIPT_PATH" ]; then
-    TOOL_COUNT=$(grep -c '"tool_name"' "$TRANSCRIPT_PATH" 2>/dev/null || echo "0")
+    TOOL_COUNT=$(grep -c '"tool_name"\|"type":"tool_use"\|"type":"tool_result"' "$TRANSCRIPT_PATH" 2>/dev/null || true)
 fi
 
 CONTEXT="Auto-recorded by Stop hook. Tools used: ${TOOL_COUNT}."
@@ -110,49 +127,59 @@ TIMESTAMP=$(python3 -c "from datetime import datetime; print(datetime.now().isof
 LOG_FILE="$HITS_DIR/${LOG_ID}.json"
 
 python3 -c "
-import json
+import json, sys
+request_text = sys.argv[1]
 log = {
-    'id': '$LOG_ID',
+    'id': sys.argv[2],
     'source': 'ai_session',
-    'request_text': '''${REQUEST_TEXT}''',
+    'request_text': request_text,
     'performed_by': 'claude',
-    'performed_at': '$TIMESTAMP',
-    'project_path': '$PROJECT_PATH',
-    'context': '$CONTEXT',
+    'performed_at': sys.argv[3],
+    'project_path': sys.argv[4],
+    'context': sys.argv[5],
     'tags': ['auto', 'stop-hook'],
     'result_type': 'none',
     'result_data': {},
-    'created_at': '$TIMESTAMP'
+    'created_at': sys.argv[3]
 }
-with open('$LOG_FILE', 'w') as f:
+with open(sys.argv[6], 'w') as f:
     json.dump(log, f, indent=2, ensure_ascii=False)
-" 2>/dev/null
+" "$REQUEST_TEXT" "$LOG_ID" "$TIMESTAMP" "$PROJECT_PATH" "$CONTEXT" "$LOG_FILE" 2>/dev/null
 
-# Update index
+# Update index — use list[str] format to match file_store.py
 INDEX_FILE="$HITS_DIR/index.json"
-if [ -f "$INDEX_FILE" ]; then
-    python3 -c "
-import json
+python3 -c "
+import json, sys
 try:
+    # Read existing index (supports both list and dict formats)
     with open('$INDEX_FILE') as f:
-        index = json.load(f)
-    index['total'] = index.get('total', 0) + 1
-    entries = index.get('entries', [])
-    entries.append({'id': '$LOG_ID', 'file': '${LOG_ID}.json'})
-    index['entries'] = entries[-100:]  # Keep last 100
+        data = json.load(f)
+
+    # Normalize to list[str] format (file_store.py format)
+    if isinstance(data, dict):
+        entries = [e['id'] if isinstance(e, dict) else e for e in data.get('entries', [])]
+    elif isinstance(data, list):
+        entries = data
+    else:
+        entries = []
+
+    # Append new entry
+    if '$LOG_ID' not in entries:
+        entries.append('$LOG_ID')
+
+    # Write as list[str]
     with open('$INDEX_FILE', 'w') as f:
-        json.dump(index, f, indent=2)
-except:
-    pass
+        json.dump(entries, f)
+except Exception as e:
+    # If index file doesn't exist or is corrupt, create fresh
+    try:
+        import os
+        os.makedirs('$HITS_DIR', exist_ok=True)
+        with open('$INDEX_FILE', 'w') as f:
+            json.dump(['$LOG_ID'], f)
+    except:
+        pass
 " 2>/dev/null
-else
-    python3 -c "
-import json
-index = {'total': 1, 'entries': [{'id': '$LOG_ID', 'file': '${LOG_ID}.json'}]}
-with open('$INDEX_FILE', 'w') as f:
-    json.dump(index, f, indent=2)
-" 2>/dev/null
-fi
 
 # Silent success - no output to avoid cluttering Claude's context
 exit 0

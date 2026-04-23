@@ -7,42 +7,76 @@
 #   {
 #     "hooks": {
 #       "SessionStart": [{
-#         "type": "command",
-#         "command": "bash /home/lhjnano/source/hits/hooks/claude_signal_watcher.sh"
+#         "matcher": "",
+#         "hooks": [{
+#           "type": "command",
+#           "command": "bash $HOME/.claude/hooks/claude_signal_watcher.sh"
+#         }]
 #       }]
 #     }
 #   }
 #
-# Behavior: checks ~/.hits/signals/pending/ for incoming signals
-#           and outputs them to stderr for auto-injection into Claude session
+# Input: JSON on stdin from Claude Code SessionStart event
+#   {"session_id": "...", "cwd": "/path/to/project"}
+#
+# Behavior:
+#   1. Checks ~/.hits/data/signals/pending/ for incoming signals
+#   2. Auto-resumes from checkpoint if available for the project
+#   3. Outputs to stderr for auto-injection into Claude session
 # ──────────────────────────────────────────────────────────────
 
 SIGNALS_DIR="$HOME/.hits/data/signals/pending"
+CHECKPOINT_DIR="$HOME/.hits/data/checkpoints"
 RECIPIENT="claude"
 
-# Exit if signals directory doesn't exist
-if [ ! -d "$SIGNALS_DIR" ]; then
-    exit 0
+# ── Parse hook input from stdin ───────────────────────────────
+
+INPUT=$(cat)
+
+CWD=$(echo "$INPUT" | python3 -c "
+import json, sys
+try:
+    d = json.load(sys.stdin)
+    print(d.get('cwd', ''))
+except: print('')
+" 2>/dev/null)
+
+# Fallback to pwd if cwd not provided
+if [ -z "$CWD" ]; then
+    CWD="$(pwd)"
 fi
 
-# pending/ 에서 claude 또는 any 대상 시그널 찾기
-FOUND=0
-for sig_file in "$SIGNALS_DIR"/*.json; do
-    [ -f "$sig_file" ] || continue
+# ── Detect project path from CWD ─────────────────────────────
 
-    # JSON에서 recipient 추출
-    recipient=$(python3 -c "
-import json, sys
+PROJECT_PATH=""
+current="$CWD"
+for i in $(seq 1 10); do
+    if [ -d "$current/.git" ]; then
+        PROJECT_PATH="$current"
+        break
+    fi
+    parent=$(dirname "$current")
+    [ "$parent" = "$current" ] && break
+    current="$parent"
+done
+
+# ── Part 1: Check for pending handover signals ────────────────
+
+FOUND=0
+if [ -d "$SIGNALS_DIR" ]; then
+    for sig_file in "$SIGNALS_DIR"/*.json; do
+        [ -f "$sig_file" ] || continue
+
+        recipient=$(python3 -c "
+import json
 try:
     d = json.load(open('$sig_file'))
     print(d.get('recipient', 'any'))
 except: print('any')
 " 2>/dev/null)
 
-    # recipient가 'claude' 또는 'any'인지 확인
-    if [ "$recipient" = "$RECIPIENT" ] || [ "$recipient" = "any" ]; then
-        # 시그널 내용 추출
-        summary=$(python3 -c "
+        if [ "$recipient" = "$RECIPIENT" ] || [ "$recipient" = "any" ]; then
+            summary=$(python3 -c "
 import json
 try:
     d = json.load(open('$sig_file'))
@@ -54,7 +88,7 @@ try:
     sig_id = d.get('id', '')
 
     lines = []
-    lines.append(f'📬 HITS handover signal detected!')
+    lines.append(f'HITS handover signal detected!')
     lines.append(f'  From: {sender}')
     lines.append(f'  Type: {sig_type}')
     lines.append(f'  Priority: {priority}')
@@ -65,49 +99,32 @@ try:
             lines.append(f'    - {item}')
     lines.append(f'  Signal ID: {sig_id}')
     lines.append(f'')
-    lines.append(f'👉 Use hits_resume() to load full context.')
-    lines.append(f'👉 Use hits_signal_consume(signal_id="{sig_id}", consumed_by="claude") to acknowledge.')
-    print('\\n'.join(lines))
+    lines.append(f'Use hits_resume() to load full context.')
+    lines.append(f'Use hits_signal_consume(signal_id=\"{sig_id}\", consumed_by=\"claude\") to acknowledge.')
+    print(chr(10).join(lines))
 except Exception as e:
-    print(f'Signal read error: {e}')
+    pass
 " 2>/dev/null)
 
-        if [ -n "$summary" ]; then
-            # stderr로 출력하면 Claude Code에 시스템 메시지로 주입됨
-            echo "$summary" >&2
-            FOUND=1
+            if [ -n "$summary" ]; then
+                echo "$summary" >&2
+                FOUND=1
+            fi
         fi
-    fi
-done
-
-if [ "$FOUND" -eq 0 ]; then
-    echo "ℹ️ HITS: No pending handover signals." >&2
+    done
 fi
 
-# ── Auto Resume ────────────────────────────────────────────
-# 현재 프로젝트에 checkpoint가 있으면 자동으로 resume 정보 제공
-CHECKPOINT_DIR="$HOME/.hits/data/checkpoints"
-CWD_PROJECT=""
+if [ "$FOUND" -eq 0 ]; then
+    echo "HITS: No pending handover signals." >&2
+fi
 
-# CWD에서 git root 탐색
-current="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-for i in $(seq 1 10); do
-    if [ -d "$current/.git" ]; then
-        CWD_PROJECT="$current"
-        break
-    fi
-    parent=$(dirname "$current")
-    [ "$parent" = "$current" ] && break
-    current="$parent"
-done
+# ── Part 2: Auto-resume from checkpoint ───────────────────────
 
-if [ -n "$CWD_PROJECT" ]; then
-    # 프로젝트 경로를 디렉토리명으로 변환 (/home/user/project → _home_user_project)
-    PROJECT_KEY=$(echo "$CWD_PROJECT" | sed 's|/|_|g')
+if [ -n "$PROJECT_PATH" ]; then
+    PROJECT_KEY=$(echo "$PROJECT_PATH" | sed 's|/|_|g')
     LATEST_CP="$CHECKPOINT_DIR/$PROJECT_KEY/latest.json"
 
     if [ -f "$LATEST_CP" ]; then
-        # Checkpoint 내용을 stderr로 출력
         python3 -c "
 import json
 try:
@@ -120,7 +137,7 @@ try:
     git_branch = d.get('git_branch', '')
 
     lines = []
-    lines.append('▶ HITS RESUME: Last session state')
+    lines.append('HITS RESUME: Last session state')
     lines.append(f'  Purpose: {purpose}')
     lines.append(f'  Progress: {pct}% (by {performer})')
     if git_branch:
@@ -133,16 +150,15 @@ try:
             action = s.get('action', '')
             cmd = s.get('command', '')
             priority = s.get('priority', 'medium')
-            icon = {'critical': '🔴', 'high': '🟡'}.get(priority, '🟢')
-            line = f'    {i}. {icon} {action}'
+            line = f'    {i}. [{priority}] {action}'
             if cmd:
-                line += f' → {cmd}'
+                line += f' -> {cmd}'
             lines.append(line)
     lines.append('')
-    lines.append('👉 Use hits_resume() to load full context.')
-    print('\\n'.join(lines))
-except Exception as e:
+    lines.append('Use hits_resume() to load full context.')
+    print(chr(10).join(lines))
+except:
     pass
-" 2>/dev/null | while IFS= read -r line; do echo "$line" >&2; done
+" >&2 2>/dev/null
     fi
 fi
