@@ -81,3 +81,4 @@ package-lock.json
 # PySide6 / Qt (legacy)
 *.ui.py
 *.qrc.py
+e2e-test.sh
