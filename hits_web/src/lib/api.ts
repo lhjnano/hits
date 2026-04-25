@@ -184,4 +184,31 @@ export const api = {
       return request(`/signals/check?${q}`);
     },
   },
+
+  // Tasks
+  tasks: {
+    list: (params?: { project_path?: string; status?: string }) => {
+      const q = new URLSearchParams();
+      if (params?.project_path) q.set('project_path', params.project_path);
+      if (params?.status) q.set('status', params.status);
+      const qs = q.toString();
+      return request(`/tasks${qs ? '?' + qs : ''}`);
+    },
+    create: (data: { title: string; project_path?: string; priority?: string; context?: string; created_by?: string }) =>
+      request('/tasks', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: Record<string, unknown>) =>
+      request(`/tasks/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: (id: string) =>
+      request(`/tasks/${id}`, { method: 'DELETE' }),
+    exportToSlack: (id: string, channel: string) =>
+      request(`/tasks/${id}/export`, { method: 'POST', body: JSON.stringify({ channel }) }),
+    slackChannels: () =>
+      request('/tasks/slack/channels'),
+    addSlackChannel: (name: string, webhook_url: string) =>
+      request('/tasks/slack/channels', { method: 'POST', body: JSON.stringify({ name, webhook_url }) }),
+    deleteSlackChannel: (name: string) =>
+      request(`/tasks/slack/channels/${encodeURIComponent(name)}`, { method: 'DELETE' }),
+    importFromSlack: (channel: string, limit?: number) =>
+      request('/tasks/slack/import', { method: 'POST', body: JSON.stringify({ channel, limit: limit || 10 }) }),
+  },
 };

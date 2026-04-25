@@ -167,6 +167,27 @@ const translations: Record<Locale, Record<string, string>> = {
     // Community
     'community.title': 'Community Discussions',
     'community.label': 'Community',
+
+    // Tasks
+    'tasks.title': 'Tasks',
+    'tasks.addTask': 'Add Task',
+    'tasks.createTask': 'Create task',
+    'tasks.noTasks': 'No tasks yet',
+    'tasks.taskTitle': 'Title',
+    'tasks.taskTitlePlaceholder': 'What needs to be done?',
+    'tasks.project': 'Project',
+    'tasks.priority': 'Priority',
+    'tasks.details': 'Details',
+    'tasks.detailsPlaceholder': 'Context, commands, notes...',
+    'tasks.export': 'Export',
+    'tasks.done': 'Done',
+    'tasks.doneTasks': 'Completed tasks',
+    'tasks.import': 'Import',
+    'tasks.importFromSlack': 'Import from Slack',
+    'tasks.noChannels': 'No Slack channels configured. Add one in Settings.',
+    'tasks.noChannelsExport': 'No Slack channels. Add one in ⚙️ Settings.',
+    'tasks.channelSettings': 'Channel Settings',
+    'tasks.envDiff': 'Different environment — verify paths',
   },
 
   ko: {
@@ -328,6 +349,27 @@ const translations: Record<Locale, Record<string, string>> = {
     // Community
     'community.title': '커뮤니티 대화',
     'community.label': '커뮤니티',
+
+    // Tasks
+    'tasks.title': '일감',
+    'tasks.addTask': '일감 추가',
+    'tasks.createTask': '일감 만들기',
+    'tasks.noTasks': '일감이 없습니다',
+    'tasks.taskTitle': '제목',
+    'tasks.taskTitlePlaceholder': '무엇을 해야 하나요?',
+    'tasks.project': '프로젝트',
+    'tasks.priority': '우선순위',
+    'tasks.details': '상세 내용',
+    'tasks.detailsPlaceholder': '컨텍스트, 명령어, 메모...',
+    'tasks.export': '내보내기',
+    'tasks.done': '완료',
+    'tasks.doneTasks': '완료된 일감',
+    'tasks.import': '가져오기',
+    'tasks.importFromSlack': 'Slack에서 가져오기',
+    'tasks.noChannels': 'Slack 채널이 없습니다. 설정에서 추가하세요.',
+    'tasks.noChannelsExport': 'Slack 채널이 없습니다. ⚙️ 설정에서 추가하세요.',
+    'tasks.channelSettings': '채널 설정',
+    'tasks.envDiff': '다른 환경 — 경로를 확인하세요',
   },
 };
 
