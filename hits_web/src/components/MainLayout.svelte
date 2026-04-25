@@ -6,7 +6,6 @@
   import KnowledgeTree from './KnowledgeTree.svelte';
   import Timeline from './Timeline.svelte';
   import ResumePanel from './ResumePanel.svelte';
-  import TasksPanel from './TasksPanel.svelte';
 
   let { onLogout } = $props<{ onLogout: () => void }>();
 
@@ -18,7 +17,7 @@
   let passwordError = $state('');
   let passwordSuccess = $state('');
   let refreshing = $state(false);
-  let activeTab: 'knowledge' | 'timeline' | 'resume' | 'tasks' = $state('resume');
+  let activeTab: 'knowledge' | 'timeline' | 'resume' = $state('resume');
   let sidebarOpen = $state(true);
   let langLabel = $state(altLangLabel());
   let projects: any[] = $state([]);
@@ -114,7 +113,7 @@
     }
   }
 
-  function switchTab(tab: 'knowledge' | 'timeline' | 'resume' | 'tasks') {
+  function switchTab(tab: 'knowledge' | 'timeline' | 'resume') {
     activeTab = tab;
   }
 </script>
@@ -169,9 +168,6 @@
       <div class="tabs" style="margin-left:12px;">
           <button class="tab" class:active={activeTab === 'resume'} onclick={() => switchTab('resume')}>
           ▶ {t('resume.title')}
-        </button>
-        <button class="tab" class:active={activeTab === 'tasks'} onclick={() => switchTab('tasks')}>
-          📌 {t('tasks.title')}
         </button>
         <button class="tab" class:active={activeTab === 'knowledge'} onclick={() => switchTab('knowledge')}>
           📋 {t('header.knowledge')}
@@ -253,8 +249,6 @@
     <div class="content-area">
       {#if activeTab === 'resume'}
         <ResumePanel bind:selectedProject />
-      {:else if activeTab === 'tasks'}
-        <TasksPanel />
       {:else if activeTab === 'knowledge'}
         <KnowledgeTree />
       {:else if activeTab === 'timeline'}

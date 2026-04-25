@@ -185,7 +185,7 @@ export const api = {
     },
   },
 
-  // Tasks
+  // Tasks (integrated into Resume)
   tasks: {
     list: (params?: { project_path?: string; status?: string }) => {
       const q = new URLSearchParams();
@@ -200,12 +200,14 @@ export const api = {
       request(`/tasks/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id: string) =>
       request(`/tasks/${id}`, { method: 'DELETE' }),
+    start: (id: string) =>
+      request(`/tasks/${id}/start`, { method: 'POST' }),
     exportToSlack: (id: string, channel: string) =>
       request(`/tasks/${id}/export`, { method: 'POST', body: JSON.stringify({ channel }) }),
     slackChannels: () =>
       request('/tasks/slack/channels'),
-    addSlackChannel: (name: string, webhook_url: string) =>
-      request('/tasks/slack/channels', { method: 'POST', body: JSON.stringify({ name, webhook_url }) }),
+    addSlackChannel: (data: { name: string; webhook_url: string; bot_token?: string; channel_id?: string }) =>
+      request('/tasks/slack/channels', { method: 'POST', body: JSON.stringify(data) }),
     deleteSlackChannel: (name: string) =>
       request(`/tasks/slack/channels/${encodeURIComponent(name)}`, { method: 'DELETE' }),
     importFromSlack: (channel: string, limit?: number) =>

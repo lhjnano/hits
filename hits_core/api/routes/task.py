@@ -19,6 +19,11 @@ TASKS_DIR = Path(os.environ.get("HITS_DATA_PATH", Path.home() / ".hits" / "data"
 SLACK_CONFIG_FILE = Path(os.environ.get("HITS_DATA_PATH", Path.home() / ".hits" / "data")) / "slack_config.json"
 
 
+class TaskStart(BaseModel):
+    """Start or resume working on a task — links it to a checkpoint."""
+    pass
+
+
 class TaskCreate(BaseModel):
     title: str
     project_path: str = ""
@@ -186,6 +191,75 @@ async def delete_task(
     return {"success": True}
 
 
+@router.post("/tasks/{task_id}/start")
+async def start_task(
+    task_id: str,
+    _auth=Depends(require_auth),
+):
+    """Start or resume working on a task.
+    
+    Sets status to 'in_progress' and creates a checkpoint linked to this task.
+    If the task already has a checkpoint, returns that checkpoint for resume.
+    """
+    from hits_core.service.checkpoint_service import CheckpointService
+    
+    tasks = _load_tasks()
+    task = None
+    for t in tasks:
+        if t["id"] == task_id:
+            task = t
+            break
+    
+    if not task:
+        return {"success": False, "error": "Task not found"}
+    
+    # If already done, reopen
+    if task["status"] == "done":
+        task["status"] = "in_progress"
+        task["completed_at"] = None
+    
+    cp_service = CheckpointService()
+    
+    # If already in_progress with a checkpoint, return it for resume
+    if task["status"] == "in_progress" and task.get("checkpoint_id"):
+        checkpoint = await cp_service.get_checkpoint(task["checkpoint_id"], task.get("project_path", ""))
+        if checkpoint:
+            _save_tasks(tasks)
+            return {
+                "success": True,
+                "data": {
+                    "task": task,
+                    "checkpoint": checkpoint.model_dump(),
+                    "action": "resumed",
+                }
+            }
+    
+    # Create new checkpoint for this task
+    checkpoint_id = f"cp_{uuid4().hex[:8]}"
+    project_path = task.get("project_path", "")
+    
+    checkpoint = await cp_service.auto_checkpoint(
+        project_path=project_path or "/tmp",
+        performer="manual",
+        purpose=task["title"],
+        current_state=task.get("context", ""),
+    )
+    
+    # Link to task
+    task["status"] = "in_progress"
+    task["checkpoint_id"] = checkpoint.id
+    _save_tasks(tasks)
+    
+    return {
+        "success": True,
+        "data": {
+            "task": task,
+            "checkpoint": checkpoint.model_dump(),
+            "action": "started",
+        }
+    }
+
+
 @router.post("/tasks/{task_id}/export")
 async def export_task_to_slack(
     task_id: str,
@@ -291,7 +365,12 @@ async def add_slack_channel(
             _save_slack_config(channels)
             return {"success": True, "data": ch}
     
-    new_ch = {"name": name, "webhook_url": webhook_url}
+    new_ch = {
+        "name": name, 
+        "webhook_url": webhook_url,
+        "bot_token": body.get("bot_token", ""),
+        "channel_id": body.get("channel_id", ""),
+    }
     channels.append(new_ch)
     _save_slack_config(channels)
     
