@@ -115,9 +115,9 @@
   async function startTask(id: string) {
     const res = await api.tasks.start(id);
     if (res.success) {
-      setFeedback(res.data?.action === 'started' ? '🚀 작업 시작' : '▶ 작업 재개', 'success');
+      setFeedback(res.data?.action === 'started' ? t('tasks.feedbackStarted') : t('tasks.feedbackResumed'), 'success');
     } else {
-      setFeedback(res.error || '시작 실패', 'error');
+      setFeedback(res.error || t('tasks.feedbackStartFailed'), 'error');
     }
     await loadAll();
   }
@@ -157,16 +157,16 @@
 
   async function exportToSlack(taskId: string, channel: string) {
     const res = await api.tasks.exportToSlack(taskId, channel);
-    if (res.success) setFeedback(`✅ ${channel}에 내보냄`, 'success');
+    if (res.success) setFeedback(t('tasks.feedbackExported').replace('{channel}', channel), 'success');
     else setFeedback(`❌ ${res.error}`, 'error');
     showExportMenu = null;
     await loadAll();
   }
 
   async function importFromSlack(channel: string) {
-    setFeedback('⏳ 가져오는 중...', 'info');
+    setFeedback(t('tasks.feedbackImporting'), 'info');
     const res = await api.tasks.importFromSlack(channel);
-    if (res.success) setFeedback(`✅ ${channel}에서 ${res.data?.imported || 0}개 가져옴`, 'success');
+    if (res.success) setFeedback(t('tasks.feedbackImported').replace('{channel}', channel).replace('{count}', String(res.data?.imported || 0)), 'success');
     else setFeedback(`⚠️ ${res.data?.hint || res.error}`, 'error');
     await loadAll();
   }
@@ -243,8 +243,8 @@
       pending_items: cp?.next_steps?.map((s: any) => s.action) || [],
       tags: ['resume', 'web-ui'],
     });
-    if (res.success) setFeedback(`✅ ${toolLabel} 시그널 전송 + 프롬프트 복사됨`, 'success');
-    else setFeedback(`✅ 프롬프트 복사됨 — ${toolLabel}에 붙여넣으세요`, 'info');
+    if (res.success) setFeedback(t('tasks.feedbackSignalSent').replace('{tool}', toolLabel), 'success');
+    else setFeedback(t('tasks.feedbackPromptCopied').replace('{tool}', toolLabel), 'info');
   }
 
   async function copyResume(task: any, cp?: any) {
@@ -306,7 +306,7 @@
           <div class="channel-info">
             <span class="channel-name">💬 {ch.name}</span>
             <span class="channel-url">{ch.webhook_url?.slice(0, 40)}...</span>
-            {#if ch.bot_token}<span class="channel-meta">📥 읽기 가능</span>{:else}<span class="channel-meta">📤 내보내기 전용</span>{/if}
+            {#if ch.bot_token}<span class="channel-meta">{t('tasks.readEnabled')}</span>{:else}<span class="channel-meta">{t('tasks.exportOnly')}</span>{/if}
           </div>
           <div class="channel-actions">
             {#if ch.bot_token && ch.channel_id}
@@ -318,12 +318,12 @@
       {/each}
       <div class="add-channel-form">
         <input class="input channel-name-input" placeholder="#channel-name" bind:value={slackName} />
-        <input class="input channel-url-input" placeholder="Webhook URL (내보내기용)" bind:value={slackUrl} />
+        <input class="input channel-url-input" placeholder={t('tasks.webhookPlaceholder')} bind:value={slackUrl} />
       </div>
       <details class="slack-advanced">
-        <summary>고급: 읽기(가져오기) 설정</summary>
+        <summary>{t('tasks.advancedReadSettings')}</summary>
         <div class="advanced-fields">
-          <input class="input" placeholder="Bot Token xoxb-... (가져오기용)" bind:value={slackBotToken} />
+          <input class="input" placeholder={t('tasks.botTokenPlaceholder')} bind:value={slackBotToken} />
           <input class="input" placeholder="Channel ID C0XXXXXX" bind:value={slackChannelId} />
         </div>
       </details>
