@@ -14,7 +14,7 @@
   // Data
   let tasks = $state<any[]>([]);
   let slackChannels = $state<any[]>([]);
-  let checkpointData = $state<any>(null);  // project-level checkpoint (legacy)
+  let checkpointData = $state<any>(null);
   let handoverData = $state<any>(null);
 
   // Modals
@@ -24,20 +24,18 @@
   let showExportMenu = $state<string | null>(null);
   let showHistory = $state(false);
   let checkpoints = $state<any[]>([]);
+  let expandedTask = $state<string | null>(null);
 
-  // Add form
+  // Add/Edit form
   let formTitle = $state('');
   let formProject = $state('');
   let formPriority = $state('medium');
   let formContext = $state('');
   let formError = $state('');
-
-  // Edit form
   let editTitle = $state('');
   let editProject = $state('');
   let editPriority = $state('medium');
   let editContext = $state('');
-  let editStatus = $state('pending');
 
   // Slack form
   let slackName = $state('');
@@ -45,8 +43,14 @@
   let slackBotToken = $state('');
   let slackChannelId = $state('');
 
-  // Section expansion
-  let expandedTasks = $state<Record<string, boolean>>({});
+  // Section expansion for checkpoint details
+  let expandedSections = $state<Record<string, boolean>>({
+    decisions: false,
+    blockers: false,
+    files: false,
+    sessionHistory: false,
+    recentWork: false,
+  });
 
   onMount(() => {
     const unsub = subscribeLocale(() => localeTick++);
@@ -96,14 +100,13 @@
     showEditModal = task.id;
     editTitle = task.title; editProject = task.project_path || '';
     editPriority = task.priority; editContext = task.context || '';
-    editStatus = task.status;
   }
 
   async function saveEdit() {
     if (!showEditModal) return;
     await api.tasks.update(showEditModal, {
       title: editTitle, project_path: editProject,
-      priority: editPriority, context: editContext, status: editStatus,
+      priority: editPriority, context: editContext,
     });
     showEditModal = null;
     await loadAll();
@@ -112,8 +115,7 @@
   async function startTask(id: string) {
     const res = await api.tasks.start(id);
     if (res.success) {
-      const action = res.data?.action;
-      setFeedback(action === 'started' ? '🚀 작업을 시작합니다' : '▶ 작업을 이어합니다', 'success');
+      setFeedback(res.data?.action === 'started' ? '🚀 작업 시작' : '▶ 작업 재개', 'success');
     } else {
       setFeedback(res.error || '시작 실패', 'error');
     }
@@ -164,58 +166,89 @@
   async function importFromSlack(channel: string) {
     setFeedback('⏳ 가져오는 중...', 'info');
     const res = await api.tasks.importFromSlack(channel);
-    if (res.success) {
-      const count = res.data?.imported || 0;
-      setFeedback(`✅ ${channel}에서 ${count}개 가져옴`, 'success');
-    } else {
-      setFeedback(`⚠️ ${res.data?.hint || res.error}`, 'error');
-    }
+    if (res.success) setFeedback(`✅ ${channel}에서 ${res.data?.imported || 0}개 가져옴`, 'success');
+    else setFeedback(`⚠️ ${res.data?.hint || res.error}`, 'error');
     await loadAll();
   }
 
-  // --- Resume prompt ---
+  // --- Resume ---
   async function copyText(text: string) {
     try { await navigator.clipboard.writeText(text); }
     catch { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); }
   }
 
-  function buildTaskResumePrompt(task: any, cp?: any): string {
+  function buildResumePrompt(task: any, cp?: any): string {
     const lines: string[] = [];
-    lines.push(`# 작업: ${task.title}`);
+    lines.push(`# ${t('resume.title')}: ${task.title}`);
     lines.push('');
-    if (task.context) { lines.push(`## 내용`); lines.push(task.context); lines.push(''); }
-    if (task.project_path) { lines.push(`## 프로젝트`); lines.push(task.project_path); lines.push(''); }
     if (cp) {
-      lines.push(`## 진행 상태`);
-      lines.push(cp.current_state || '시작 전');
+      lines.push('## Goal');
+      lines.push(cp.purpose || task.title);
+      lines.push('');
+      lines.push('## Current State');
+      lines.push(cp.current_state || task.context || '');
       lines.push('');
       if (cp.next_steps?.length) {
-        lines.push('## 다음 단계');
+        lines.push(`## ${t('resume.nextSteps')}`);
         for (const s of cp.next_steps) {
           lines.push(`- [${s.priority || 'medium'}] ${s.action}`);
           if (s.command) lines.push(`  → ${s.command}`);
+          if (s.file) lines.push(`  📄 ${s.file}`);
         }
         lines.push('');
       }
       if (cp.required_context?.length) {
-        lines.push('## 필수 정보');
+        lines.push(`## ${t('resume.mustKnow')}`);
         for (const c of cp.required_context) lines.push(`- ${c}`);
         lines.push('');
       }
+      if (cp.decisions_made?.length) {
+        lines.push(`## ${t('resume.decisions')}`);
+        for (const d of cp.decisions_made) lines.push(`- ${d.decision}${d.rationale ? ` (${d.rationale})` : ''}`);
+        lines.push('');
+      }
+      if (cp.blocks?.length) {
+        lines.push(`## ${t('resume.blockers')}`);
+        for (const b of cp.blocks) lines.push(`- ${b.issue}${b.workaround ? ` → ${b.workaround}` : ''}`);
+        lines.push('');
+      }
+      if (cp.knowledge_tips?.length) {
+        lines.push(`## ${t('resume.projectTips')}`);
+        for (const tip of cp.knowledge_tips) {
+          const icon = tip.negative ? '🚫' : tip.layer === 'how' ? '🔧' : tip.layer === 'why' ? '🎯' : '📄';
+          lines.push(`${icon} ${tip.name}${tip.action ? ` → ${tip.action}` : ''}`);
+        }
+        lines.push('');
+      }
+    } else {
+      if (task.context) { lines.push('## Context'); lines.push(task.context); lines.push(''); }
+      if (task.project_path) { lines.push('## Project'); lines.push(task.project_path); lines.push(''); }
     }
     if (task.source === 'slack') {
-      lines.push(`## 출처`);
-      lines.push(`Slack #${task.slack_channel}`);
-      if (task.source_env?.hostname) lines.push(`원본 환경: ${task.source_env.hostname}`);
+      lines.push(`## Source: Slack #${task.slack_channel}`);
+      if (task.source_env?.hostname) lines.push(`Original env: ${task.source_env.hostname}`);
       lines.push('');
     }
     return lines.join('\n');
   }
 
-  async function copyResume(task: any) {
-    const cp = task._checkpoint;
-    const prompt = buildTaskResumePrompt(task, cp);
+  async function resumeWith(tool: string, task: any, cp?: any) {
+    const prompt = buildResumePrompt(task, cp);
     await copyText(prompt);
+    const toolLabel = tool === 'claude' ? 'Claude Code' : 'OpenCode';
+    const res = await api.signals.send({
+      sender: 'web-ui', recipient: tool, signal_type: 'task_ready',
+      project_path: task.project_path || selectedProject,
+      summary: task.title, context: cp?.current_state || task.context || '',
+      pending_items: cp?.next_steps?.map((s: any) => s.action) || [],
+      tags: ['resume', 'web-ui'],
+    });
+    if (res.success) setFeedback(`✅ ${toolLabel} 시그널 전송 + 프롬프트 복사됨`, 'success');
+    else setFeedback(`✅ 프롬프트 복사됨 — ${toolLabel}에 붙여넣으세요`, 'info');
+  }
+
+  async function copyResume(task: any, cp?: any) {
+    await copyText(buildResumePrompt(task, cp));
     copyFeedback = '✅ Copied!';
     setTimeout(() => copyFeedback = '', 3000);
   }
@@ -224,21 +257,16 @@
   function priorityIcon(p: string): string {
     return { critical: '🔴', high: '🟠', medium: '🔵', low: '⚪' }[p] || '🔵';
   }
-
   function sourceLabel(task: any): string {
-    if (task.source === 'slack') return `💬 ${task.slack_channel}`;
-    return '💻 Local';
+    return task.source === 'slack' ? `💬 ${task.slack_channel}` : '💻 Local';
   }
-
   function isRemote(task: any): boolean {
     return task.source !== 'local' && task.source_env?.hostname;
   }
-
   function progressBar(pct: number): string {
-    const filled = '█'.repeat(Math.floor(pct / 10));
-    const empty = '░'.repeat(10 - Math.floor(pct / 10));
-    return `${filled}${empty} ${pct}%`;
+    return `${'█'.repeat(Math.floor(pct / 10))}${'░'.repeat(10 - Math.floor(pct / 10))} ${pct}%`;
   }
+  function toggleSection(key: string) { expandedSections[key] = !expandedSections[key]; }
 
   // --- Derived ---
   let pendingTasks = $derived(tasks.filter(t => t.status === 'pending'));
@@ -278,11 +306,7 @@
           <div class="channel-info">
             <span class="channel-name">💬 {ch.name}</span>
             <span class="channel-url">{ch.webhook_url?.slice(0, 40)}...</span>
-            {#if ch.bot_token}
-              <span class="channel-meta">📥 읽기 가능 (channel: {ch.channel_id || '?'})</span>
-            {:else}
-              <span class="channel-meta">📤 내보내기 전용</span>
-            {/if}
+            {#if ch.bot_token}<span class="channel-meta">📥 읽기 가능</span>{:else}<span class="channel-meta">📤 내보내기 전용</span>{/if}
           </div>
           <div class="channel-actions">
             {#if ch.bot_token && ch.channel_id}
@@ -301,9 +325,6 @@
         <div class="advanced-fields">
           <input class="input" placeholder="Bot Token xoxb-... (가져오기용)" bind:value={slackBotToken} />
           <input class="input" placeholder="Channel ID C0XXXXXX" bind:value={slackChannelId} />
-          <div class="text-xs text-muted" style="margin-top:4px;">
-            읽기 권한: api.slack.com/apps → OAuth & Permissions → channels:history 스코프 추가
-          </div>
         </div>
       </details>
       <button class="btn btn-primary btn-sm" style="margin-top:8px;" onclick={addSlackChannel}>+ {t('tasks.addChannel')}</button>
@@ -320,19 +341,136 @@
     {#if activeTasks.length > 0}
       <div class="section-label">🔄 {t('tasks.inProgress')} ({activeTasks.length})</div>
       {#each activeTasks as task (task.id)}
+        {@const cp = checkpointData?.checkpoint?.purpose === task.title ? checkpointData.checkpoint : null}
         <div class="task-card in-progress" class:task-remote={isRemote(task)}>
+          <!-- Title row -->
           <div class="task-header">
             <span class="priority">{priorityIcon(task.priority)}</span>
             <strong class="task-title">{task.title}</strong>
             {#if task.project_name}<span class="badge">📂 {task.project_name}</span>{/if}
             <span class="source-badge">{sourceLabel(task)}</span>
+            {#if cp}<span class="badge progress-badge">{progressBar(cp.completion_pct || 0)}</span>{/if}
           </div>
-          {#if task.context}<div class="task-context">{task.context}</div>{/if}
+
+          <!-- Current state -->
+          {#if cp?.current_state}
+            <div class="task-context">{cp.current_state}</div>
+          {:else if task.context}
+            <div class="task-context">{task.context}</div>
+          {/if}
+
           {#if isRemote(task)}
             <div class="env-warning">⚠️ {task.source_env.hostname} {task.source_env.os || ''}</div>
           {/if}
+
+          <!-- ══ Resume Actions ══ -->
+          <div class="resume-actions">
+            <button class="btn btn-primary" onclick={() => resumeWith('claude', task, cp)}>
+              ▶ Claude Code
+            </button>
+            <button class="btn btn-primary" onclick={() => resumeWith('opencode', task, cp)}>
+              ▶ OpenCode
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick={() => copyResume(task, cp)}>
+              📋 {t('resume.copy')}
+            </button>
+          </div>
+
+          <!-- ══ Checkpoint Detail ══ -->
+          {#if cp}
+            <!-- Next Steps -->
+            {#if cp.next_steps?.length}
+              <div class="handover-section" style="border-left-color:var(--success);">
+                <h3>▶ {t('resume.nextSteps')}</h3>
+                {#each cp.next_steps as step, i}
+                  <div class="handover-item">
+                    <div class="flex items-center gap-sm">
+                      <span class="badge" class:badge-critical={step.priority === 'critical'} class:badge-high={step.priority === 'high'}>
+                        {step.priority === 'critical' ? '🔴' : step.priority === 'high' ? '🟡' : '🟢'}
+                      </span>
+                      <strong>{i + 1}. {step.action}</strong>
+                    </div>
+                    {#if step.command}<code class="text-sm" style="margin-left:24px;color:var(--info);">→ {step.command}</code>{/if}
+                    {#if step.file}<span class="text-xs text-muted" style="margin-left:24px;">📄 {step.file}</span>{/if}
+                  </div>
+                {/each}
+              </div>
+            {/if}
+
+            <!-- Must Know -->
+            {#if cp.required_context?.length}
+              <div class="handover-section" style="border-left-color:var(--warning);">
+                <h3>⚠ {t('resume.mustKnow')}</h3>
+                {#each cp.required_context as ctx}<div class="handover-item">• {ctx}</div>{/each}
+              </div>
+            {/if}
+
+            <!-- Knowledge Tips -->
+            {#if cp.knowledge_tips?.length}
+              <div class="handover-section" style="border-left-color:var(--info, #4a9eff);">
+                <h3>💡 {t('resume.projectTips')}</h3>
+                {#each cp.knowledge_tips as tip}
+                  <div class="handover-item" style="display:flex;align-items:flex-start;gap:6px;">
+                    {#if tip.negative}<span style="color:var(--danger);flex-shrink:0;">🚫</span>
+                    {:else if tip.layer === 'how'}<span style="color:var(--info,#4a9eff);flex-shrink:0;">🔧</span>
+                    {:else if tip.layer === 'why'}<span style="color:var(--warning);flex-shrink:0;">🎯</span>
+                    {:else}<span style="color:var(--text-muted);flex-shrink:0;">📄</span>{/if}
+                    <div style="flex:1;min-width:0;">
+                      <span>{tip.name}</span>
+                      {#if tip.action}<div class="text-xs text-muted" style="margin-top:2px;">→ {tip.action}</div>{/if}
+                    </div>
+                  </div>
+                {/each}
+              </div>
+            {/if}
+
+            <!-- Decisions -->
+            {#if cp.decisions_made?.length}
+              <div class="handover-section">
+                <h3 style="cursor:pointer;" onclick={() => toggleSection('decisions')}>
+                  {expandedSections.decisions ? '▼' : '▶'} ★ {t('resume.decisions')}
+                </h3>
+                {#if expandedSections.decisions}
+                  {#each cp.decisions_made as d}
+                    <div class="handover-item">{d.decision}{#if d.rationale}<div class="text-xs text-muted">→ {d.rationale}</div>{/if}</div>
+                  {/each}
+                {/if}
+              </div>
+            {/if}
+
+            <!-- Blockers -->
+            {#if cp.blocks?.length}
+              <div class="handover-section" style="border-left-color:var(--danger);">
+                <h3 style="cursor:pointer;" onclick={() => toggleSection('blockers')}>
+                  {expandedSections.blockers ? '▼' : '▶'} 🚫 {t('resume.blockers')}
+                </h3>
+                {#if expandedSections.blockers}
+                  {#each cp.blocks as b}
+                    <div class="handover-item">{b.issue}{#if b.workaround}<div class="text-xs" style="color:var(--success);">{t('resume.workaround')}: {b.workaround}</div>{/if}</div>
+                  {/each}
+                {/if}
+              </div>
+            {/if}
+
+            <!-- Files -->
+            {#if cp.files_delta?.length}
+              <div class="handover-section">
+                <h3 style="cursor:pointer;" onclick={() => toggleSection('files')}>
+                  {expandedSections.files ? '▼' : '▶'} 📄 {t('resume.files')} ({cp.files_delta.length})
+                </h3>
+                {#if expandedSections.files}
+                  {#each cp.files_delta.slice(0, 10) as fd}
+                    <div class="handover-item" style="font-family:var(--font-mono);font-size:12px;">
+                      [{fd.change_type === 'created' ? '+' : fd.change_type === 'deleted' ? '-' : '~'}] {fd.path}
+                    </div>
+                  {/each}
+                {/if}
+              </div>
+            {/if}
+          {/if}
+
+          <!-- Task management actions -->
           <div class="task-actions">
-            <button class="btn btn-primary btn-sm" onclick={() => copyResume(task)}>📋 {t('resume.copy')}</button>
             {#if hasSlackConnection()}
               <button class="btn btn-secondary btn-sm" onclick={() => showExportMenu = showExportMenu === task.id ? null : task.id}>📤 {t('tasks.export')}</button>
             {/if}
@@ -340,11 +478,21 @@
             <button class="btn btn-secondary btn-sm" onclick={() => openEditModal(task)}>✏️</button>
             <button class="btn-icon btn-delete" onclick={() => deleteTask(task.id)}>✕</button>
           </div>
+
           {#if showExportMenu === task.id}
             <div class="export-dropdown">
               {#each slackChannels as ch}<button class="btn btn-secondary btn-sm" onclick={() => exportToSlack(task.id, ch.name)}>💬 {ch.name}</button>{/each}
             </div>
           {/if}
+
+          <!-- Hook setup -->
+          <details style="margin-top:6px;margin-left:24px;">
+            <summary class="text-sm text-muted" style="cursor:pointer;">{t('resume.hookSetup')}</summary>
+            <div style="margin-top:4px;">
+              <code style="display:block;padding:6px;background:var(--bg-surface2);border-radius:4px;font-size:11px;user-select:all;">npx @purpleraven/hits connect claude</code>
+              <code style="display:block;padding:6px;background:var(--bg-surface2);border-radius:4px;font-size:11px;margin-top:2px;user-select:all;">npx @purpleraven/hits connect opencode</code>
+            </div>
+          </details>
         </div>
       {/each}
     {/if}
@@ -393,27 +541,70 @@
       </details>
     {/if}
 
+    <!-- ═══ PENDING SIGNALS ═══ -->
+    {#if checkpointData?.signals?.length}
+      <div class="handover-section" style="border-left-color:var(--warning);">
+        <h3>📬 {t('resume.pendingSignals')}</h3>
+        {#each checkpointData.signals as sig}
+          <div class="handover-item">
+            <span class="badge" class:badge-critical={sig.priority === 'urgent'} class:badge-high={sig.priority === 'high'}>
+              {sig.priority === 'urgent' ? '🔴' : sig.priority === 'high' ? '🟡' : '🟢'}
+            </span>
+            <strong style="margin-left:8px;">{sig.sender}</strong>: {sig.summary}
+            {#if sig.pending_items?.length}
+              <ul style="margin:4px 0 0 20px;font-size:12px;">{#each sig.pending_items as item}<li>{item}</li>{/each}</ul>
+            {/if}
+          </div>
+        {/each}
+      </div>
+    {/if}
+
+    <!-- ═══ SESSION HISTORY & RECENT WORK ═══ -->
+    {#if handoverData}
+      {#if handoverData.session_history?.length}
+        <div class="handover-section" style="margin-top:12px;">
+          <h3 style="cursor:pointer;" onclick={() => toggleSection('sessionHistory')}>
+            {expandedSections.sessionHistory ? '▼' : '▶'} 👥 {t('resume.sessionHistory')}
+          </h3>
+          {#if expandedSections.sessionHistory}
+            {#each handoverData.session_history as session}
+              <div class="handover-item">
+                <strong>{session.performed_by}</strong>: {session.log_count}
+                <span class="text-xs text-muted" style="margin-left:8px;">{(session.last_activity || '').slice(0, 16)}</span>
+              </div>
+            {/each}
+          {/if}
+        </div>
+      {/if}
+      {#if handoverData.recent_logs?.length}
+        <div class="handover-section">
+          <h3 style="cursor:pointer;" onclick={() => toggleSection('recentWork')}>
+            {expandedSections.recentWork ? '▼' : '▶'} 📝 {t('resume.recentWork')}
+          </h3>
+          {#if expandedSections.recentWork}
+            {#each handoverData.recent_logs.slice(0, 10) as log}
+              <div class="handover-item">
+                <span class="text-xs text-muted">{(log.performed_at || '').slice(5, 16)}</span>
+                <span style="margin-left:8px;" class="badge">{log.performed_by}</span>
+                <span style="margin-left:8px;">{(log.request_text || '').slice(0, 80)}</span>
+                {#if log.tags?.length}
+                  <div class="tags" style="display:inline-flex;margin-left:4px;">
+                    {#each log.tags as tag}<span class="tag">{tag}</span>{/each}
+                  </div>
+                {/if}
+              </div>
+            {/each}
+          {/if}
+        </div>
+      {/if}
+    {/if}
+
     <!-- ═══ EMPTY ═══ -->
-    {#if tasks.length === 0}
+    {#if tasks.length === 0 && !checkpointData?.checkpoint}
       <div class="empty-state">
         <div class="icon">▶</div>
         <div class="message">{t('tasks.noTasks')}</div>
         <button class="btn btn-primary btn-sm" onclick={() => showAddModal = true}>{t('tasks.createTask')}</button>
-      </div>
-    {/if}
-
-    <!-- ═══ LEGACY: Project checkpoint (if no tasks) ═══ -->
-    {#if tasks.length === 0 && checkpointData?.checkpoint}
-      {@const cp = checkpointData.checkpoint}
-      <div class="card" style="margin-top:16px;">
-        <div class="flex items-center gap-sm">
-          <span style="font-size:24px;">💾</span>
-          <div style="flex:1;">
-            <div style="font-weight:600;">{cp.purpose || t('resume.noPurpose')}</div>
-            <div class="text-sm text-muted">{cp.current_state || ''}</div>
-          </div>
-          <div class="badge">{progressBar(cp.completion_pct)}</div>
-        </div>
       </div>
     {/if}
 
@@ -485,14 +676,12 @@
 {/if}
 
 <style>
-  .resume-panel { display: flex; flex-direction: column; gap: 0; }
+  .resume-panel { display:flex; flex-direction:column; gap:0; }
 
-  /* Feedback */
   .feedback-bar { padding:8px 12px; border-radius:6px; font-size:13px; margin-bottom:8px; text-align:center; }
   .feedback-success { background:var(--success-bg,#d4edda); color:var(--success,#155724); }
   .feedback-error { background:var(--danger-bg,#f8d7da); color:var(--danger,#721c24); }
 
-  /* Header */
   .header-row { display:flex; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:4px; }
   .header-row h2 { font-size:16px; flex:1; margin:0; }
   .header-actions { display:flex; align-items:center; gap:4px; flex-wrap:wrap; }
@@ -534,6 +723,9 @@
 
   .badge { font-size:11px; padding:2px 8px; border-radius:10px; background:var(--bg-surface2); white-space:nowrap; }
   .source-badge { font-size:11px; color:var(--text-muted); white-space:nowrap; }
+  .progress-badge { font-family:var(--font-mono,monospace); font-size:10px; }
+  .badge-critical { background:var(--danger); color:white; }
+  .badge-high { background:var(--warning); color:white; }
 
   .task-context { margin-top:6px; margin-left:24px; font-size:13px; color:var(--text-muted); }
 
@@ -542,6 +734,22 @@
     background:var(--bg-surface2); border-radius:4px;
     display:inline-flex; align-items:center; gap:6px; font-size:11px;
   }
+
+  /* Resume actions — prominent */
+  .resume-actions {
+    display:flex; gap:6px; margin-top:10px; margin-left:24px; flex-wrap:wrap;
+    padding:8px 12px; background:var(--bg-surface2); border-radius:8px;
+    border:1px solid var(--border-color);
+  }
+
+  /* Handover sections */
+  .handover-section {
+    margin-left:24px; margin-top:8px; padding:8px 12px;
+    border-left:3px solid var(--text-muted);
+    background:var(--bg-surface);
+  }
+  .handover-section h3 { font-size:13px; margin:0 0 6px; }
+  .handover-item { font-size:13px; margin-bottom:4px; line-height:1.4; }
 
   .task-actions { display:flex; align-items:center; gap:4px; margin-top:8px; margin-left:24px; flex-wrap:wrap; }
   .btn-done { color:var(--success); }
@@ -556,6 +764,5 @@
   .done-section { margin-top:8px; }
   .done-section summary { cursor:pointer; }
 
-  /* Modal */
   .modal-footer { display:flex; gap:8px; margin-top:16px; justify-content:flex-end; }
 </style>
