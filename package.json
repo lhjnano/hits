@@ -1,6 +1,6 @@
 {
   "name": "@purpleraven/hits",
-  "version": "1.2.6",
+  "version": "1.2.7",
   "description": "Your AI session died. Your work didn't. The checkpoint system for AI coding sessions — token limits, session swaps, tool switches, pick up where you left off.",
   "keywords": [
     "ai",
@@ -70,5 +70,6 @@
   "bugs": {
     "url": "https://github.com/lhjnano/hits/issues"
   },
-  "homepage": "https://github.com/lhjnano/hits#readme"
+  "homepage": "https://github.com/lhjnano/hits#readme",
+  "talkToUs": "https://github.com/lhjnano/hits/discussions"
 }

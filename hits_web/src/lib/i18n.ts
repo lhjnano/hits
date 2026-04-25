@@ -163,6 +163,10 @@ const translations: Record<Locale, Record<string, string>> = {
     // Common extras
     'common.switchLang': 'Switch language',
     'app.loading': 'HITS...',
+
+    // Community
+    'community.title': 'Community Discussions',
+    'community.label': 'Community',
   },
 
   ko: {
@@ -320,6 +324,10 @@ const translations: Record<Locale, Record<string, string>> = {
     // Common extras
     'common.switchLang': '언어 전환',
     'app.loading': 'HITS...',
+
+    // Community
+    'community.title': '커뮤니티 대화',
+    'community.label': '커뮤니티',
   },
 };
 

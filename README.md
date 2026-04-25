@@ -229,8 +229,17 @@ cd hits_web && npm install && npm run build && cd ..
 
 Apache 2.0 — free for commercial use.
 
+## Community
+
+💬 **Have questions? Ideas? Want to share how you use HITS?**
+
+[![GitHub Discussions](https://img.shields.io/badge/GitHub-Discussions-blue?logo=github&style=social)](https://github.com/lhjnano/hits/discussions)
+
+Join the conversation — feature requests, bug reports, workflows, tips & tricks.
+
 ## Links
 
 - **npm**: [https://www.npmjs.com/package/@purpleraven/hits](https://www.npmjs.com/package/@purpleraven/hits)
 - **GitHub**: [https://github.com/lhjnano/hits](https://github.com/lhjnano/hits)
 - **Issues**: [https://github.com/lhjnano/hits/issues](https://github.com/lhjnano/hits/issues)
+- **Discussions**: [https://github.com/lhjnano/hits/discussions](https://github.com/lhjnano/hits/discussions)
