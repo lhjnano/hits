@@ -142,7 +142,7 @@ The default landing page — your latest checkpoint at a glance:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  ▶ Resume   📋 Knowledge   📝 Timeline   🔄 Handover    │
+│  ▶ Resume   📌 Tasks   📋 Knowledge   📝 Timeline       │
 ├─────────────────────────────────────────────────────────┤
 │                                                         │
 │  💾 my-project                          ██████░░ 60%    │
@@ -158,6 +158,11 @@ The default landing page — your latest checkpoint at a glance:
 │  ⚠ Must Know                                           │
 │    • Using Argon2id (not bcrypt)                        │
 │    • JWT expires after 15 minutes                       │
+│                                                         │
+│  💡 Project Know-How (auto-injected from Knowledge)     │
+│    • HOW: Argon2id + JWT HttpOnly cookies               │
+│    • HOW: Use Argon2id, NOT bcrypt                      │
+│    • WHAT: POST /api/auth/login → Set-Cookie            │
 │                                                         │
 │  📄 Files (3)                                           │
 │    [~] auth/manager.py  [~] middleware.py  [+] test.py  │
@@ -184,6 +189,76 @@ Chronological work log grouped by date. Click to expand context, files modified,
 ### Cross-Tool Signals
 
 Claude → OpenCode → Cursor. File-based, no server needed. Hooks auto-inject on session start.
+
+---
+
+## 🧪 Experimental Features
+
+These features are in early development. They work, but APIs and UX may change.
+
+### Task Management with Slack Sync
+
+A lightweight task board built into HITS — designed for **solo developers and small teams** who track work across machines and want to sync via Slack.
+
+```
+┌──────────────────────────────────────────────────────────┐
+│  📌 Tasks                                  + Add Task    │
+│                                                           │
+│  ● 2 channels connected            ⚙️ Slack Settings     │
+│                                                           │
+│  All (5)  |  Active (3)  |  Done (2)  |  💬 #dev-tasks   │
+│  ─────────────────────────────────────────────────────── │
+│                                                           │
+│  🔴 Fix login 500 error              📂 app  💻 Local    │
+│     Users report 500 on POST /login                      │
+│     [✅ Done]  [📤 Export]  [✏️ Edit]                     │
+│                                                           │
+│  🔵 Add dark mode toggle                       💻 Local   │
+│     [✅ Done]  [📤 Export]  [✏️ Edit]                     │
+│                                                           │
+│  🟠 Review API docs                  💬 #dev-tasks        │
+│     ⚠️ Different environment — DESKTOP-OFFICE Windows     │
+│     [✅ Done]  [📤 Export]  [✏️ Edit]                     │
+│                                                           │
+└──────────────────────────────────────────────────────────┘
+```
+
+**What it does:**
+
+- **Create, edit, reopen, complete tasks** — full lifecycle, not just done/delete
+- **Filter by status or Slack channel** — see only what matters
+- **Export tasks to Slack** — send a task to a channel via webhook
+- **Import tasks from Slack** — pull messages from a channel as tasks
+- **Environment-awareness** — tasks created on another machine carry hostname, OS info. UI warns you to verify paths before acting on them.
+- **Priority levels** — Critical 🔴 / High 🟠 / Medium 🔵 / Low ⚪
+
+**How to set up Slack sync:**
+
+```bash
+# 1. Open HITS Web UI → 📌 Tasks tab → ⚙️ Slack Settings
+# 2. Add a channel:
+#    Name:   #dev-tasks
+#    Webhook: https://hooks.slack.com/services/T.../B.../xxx
+# 3. Now you can export tasks to that channel, or import from it
+```
+
+> **Why Slack, not Git?** Designers, PMs, and office workers don't use Git. Slack is the common ground. Tasks flow in from Slack, get worked on locally, and results flow back out.
+
+**API endpoints:**
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/tasks` | List all tasks |
+| `POST` | `/api/tasks` | Create a task |
+| `PUT` | `/api/tasks/{id}` | Update a task |
+| `DELETE` | `/api/tasks/{id}` | Delete a task |
+| `POST` | `/api/tasks/{id}/export` | Export task to Slack channel |
+| `GET` | `/api/tasks/slack/channels` | List configured Slack channels |
+| `POST` | `/api/tasks/slack/channels` | Add a Slack channel |
+| `DELETE` | `/api/tasks/slack/channels/{name}` | Remove a Slack channel |
+| `POST` | `/api/tasks/slack/import` | Import tasks from Slack channel |
+
+> ⚠️ **Feedback wanted.** This is an experiment. If you use it, please share your experience in [GitHub Discussions](https://github.com/lhjnano/hits/discussions).
 
 ## Requirements
 
