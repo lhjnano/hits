@@ -2,7 +2,7 @@
   import './lib/styles.css';
   import { onMount } from 'svelte';
   import { api } from './lib/api';
-  import { initLocale } from './lib/i18n';
+  import { initLocale, t, subscribeLocale } from './lib/i18n';
   import { authStore } from './lib/stores';
   import Login from './components/Login.svelte';
   import MainLayout from './components/MainLayout.svelte';
@@ -10,9 +10,11 @@
   let authenticated = $state(false);
   let initialized = $state(false);
   let loading = $state(true);
+  let localeTick = $state(0);
 
   onMount(async () => {
     initLocale();
+    const unsub = subscribeLocale(() => localeTick++);
     const res = await api.auth.status();
     if (res.success && res.data) {
       initialized = res.data.initialized;
@@ -60,7 +62,7 @@
     <div class="login-container">
       <div class="loading">
         <div class="spinner" style="width:32px;height:32px;margin-right:12px;"></div>
-        <span>HITS...</span>
+        <span>{t('app.loading')}</span>
       </div>
     </div>
   {:else if !authenticated}

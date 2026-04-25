@@ -166,8 +166,8 @@
       <h1>HITS</h1>
 
       <div class="tabs" style="margin-left:12px;">
-        <button class="tab" class:active={activeTab === 'resume'} onclick={() => switchTab('resume')}>
-          ▶ Resume
+          <button class="tab" class:active={activeTab === 'resume'} onclick={() => switchTab('resume')}>
+          ▶ {t('resume.title')}
         </button>
         <button class="tab" class:active={activeTab === 'knowledge'} onclick={() => switchTab('knowledge')}>
           📋 {t('header.knowledge')}
@@ -180,7 +180,7 @@
       <div style="flex:1;"></div>
 
       <!-- Language Toggle -->
-      <button class="btn-icon" onclick={toggleLang} title="Switch language" aria-label="Switch language">
+      <button class="btn-icon" onclick={toggleLang} title={t('common.switchLang')} aria-label={t('common.switchLang')}>
         🌐 {langLabel}
       </button>
 

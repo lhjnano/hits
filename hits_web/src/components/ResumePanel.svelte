@@ -50,7 +50,7 @@
     if (hvRes.success && hvRes.data) handoverData = hvRes.data;
 
     if (!cpRes.success && !hvRes.success) {
-      error = cpRes.error || hvRes.error || 'No data available';
+      error = cpRes.error || hvRes.error || t('resume.noDataAvailable');
     }
     loading = false;
   }
@@ -111,9 +111,9 @@
     await copyText(prompt);
 
     if (res.success) {
-      copyFeedback = `✅ Signal sent + prompt copied — open ${toolLabel} and paste`;
+      copyFeedback = `✅ ${t('resume.signalSent').replace('{tool}', toolLabel)}`;
     } else {
-      copyFeedback = `✅ Prompt copied — open ${toolLabel} and paste`;
+      copyFeedback = `✅ ${t('resume.copyPrompt').replace('{tool}', toolLabel)}`;
     }
     showGuide = true;
   }
@@ -122,19 +122,19 @@
     const lines: string[] = [];
     const cp = checkpointData?.checkpoint;
 
-    lines.push(`# Resume: ${selectedProject.split('/').pop()}`);
+    lines.push(`# ${t('resume.title')}: ${selectedProject.split('/').pop()}`);
     lines.push('');
 
     if (cp) {
       lines.push('## Goal');
-      lines.push(cp.purpose || '(no purpose set)');
+      lines.push(cp.purpose || t('resume.noPurpose'));
       lines.push('');
       lines.push('## Current State');
-      lines.push(cp.current_state || '(no state recorded)');
+      lines.push(cp.current_state || t('resume.noState'));
       lines.push('');
 
       if (cp.next_steps?.length) {
-        lines.push('## Next Steps');
+        lines.push(`## ${t('resume.nextSteps')}`);
         for (let i = 0; i < cp.next_steps.length; i++) {
           const s = cp.next_steps[i];
           lines.push(`${i + 1}. [${s.priority || 'medium'}] ${s.action}`);
@@ -145,13 +145,13 @@
       }
 
       if (cp.required_context?.length) {
-        lines.push('## Must Know');
+        lines.push(`## ${t('resume.mustKnow')}`);
         for (const ctx of cp.required_context) lines.push(`- ${ctx}`);
         lines.push('');
       }
 
       if (cp.decisions_made?.length) {
-        lines.push('## Decisions');
+        lines.push(`## ${t('resume.decisions')}`);
         for (const d of cp.decisions_made) {
           lines.push(`- ${d.decision}${d.rationale ? ` (${d.rationale})` : ''}`);
         }
@@ -159,7 +159,7 @@
       }
 
       if (cp.blocks?.length) {
-        lines.push('## Blockers');
+        lines.push(`## ${t('resume.blockers')}`);
         for (const b of cp.blocks) {
           lines.push(`- ${b.issue}${b.workaround ? ` → Workaround: ${b.workaround}` : ''}`);
         }
@@ -169,7 +169,7 @@
 
     // Pending signals
     if (checkpointData?.signals?.length) {
-      lines.push('## Pending Signals');
+      lines.push(`## ${t('resume.pendingSignals')}`);
       for (const sig of checkpointData.signals) {
         lines.push(`- [${sig.priority}] ${sig.sender}: ${sig.summary}`);
         if (sig.pending_items) lines.push(`  Items: ${sig.pending_items.join(', ')}`);
@@ -196,19 +196,19 @@
   <!-- Header with action buttons -->
   <div class="flex items-center" style="margin-bottom:16px;">
     <h2 style="font-size:16px; flex:1;">
-      ▶ {selectedProject ? selectedProject.split('/').pop() : 'Resume'}
+      ▶ {selectedProject ? selectedProject.split('/').pop() : t('resume.title')}
     </h2>
     {#if copyFeedback}
       <span style="color:var(--success); font-size:12px; margin-right:8px;">{copyFeedback}</span>
     {/if}
-    <button class="btn btn-secondary btn-sm" onclick={loadHistory}>📋 History</button>
+    <button class="btn btn-secondary btn-sm" onclick={loadHistory}>📋 {t('resume.history')}</button>
     <button class="btn btn-secondary btn-sm" onclick={loadAll} style="margin-left:4px;">🔄</button>
   </div>
 
   {#if !selectedProject}
     <div class="empty-state">
       <div class="icon">▶</div>
-      <div class="message">Select a project from the sidebar</div>
+      <div class="message">{t('resume.selectProject')}</div>
     </div>
   {:else if loading}
     <div class="loading"><div class="spinner"></div></div>
@@ -219,9 +219,9 @@
     {#if checkpointData?.checkpoint || checkpointData?.compressed}
       <div class="card" style="margin-bottom:16px; border:2px solid var(--success);">
         <div class="flex items-center" style="margin-bottom:12px;">
-          <h3 style="color:var(--success); flex:1;">🚀 Resume Work</h3>
+          <h3 style="color:var(--success); flex:1;">🚀 {t('resume.resumeWork')}</h3>
           <button class="btn btn-secondary btn-sm" onclick={() => resumeWith('copy')}>
-            📋 Copy
+            📋 {t('resume.copy')}
           </button>
         </div>
 
@@ -241,24 +241,24 @@
         <!-- Guide shown after clicking resume -->
         {#if showGuide}
           <div style="background:var(--bg-secondary); border-radius:8px; padding:12px; margin-top:8px;">
-            <div class="text-sm" style="font-weight:600; margin-bottom:8px;">📌 Next steps:</div>
+            <div class="text-sm" style="font-weight:600; margin-bottom:8px;">📌 {t('resume.nextStepsGuide')}</div>
             <ol class="text-sm text-muted" style="margin:0; padding-left:20px;">
-              <li>Open your AI tool (Claude Code / OpenCode)</li>
-              <li>Paste the copied prompt into the chat</li>
-              <li>The AI will read the checkpoint and continue work</li>
+              <li>{t('resume.guide1')}</li>
+              <li>{t('resume.guide2')}</li>
+              <li>{t('resume.guide3')}</li>
             </ol>
             <div style="margin-top:8px;">
-              <button class="text-sm" style="background:none; border:none; color:var(--text-muted); cursor:pointer;" onclick={() => showGuide = false}>Close guide</button>
+              <button class="text-sm" style="background:none; border:none; color:var(--text-muted); cursor:pointer;" onclick={() => showGuide = false}>{t('resume.closeGuide')}</button>
             </div>
           </div>
         {/if}
 
         <!-- Hook setup (collapsible) -->
         <details style="margin-top:8px;">
-          <summary class="text-sm text-muted" style="cursor:pointer;">First time? Set up auto-resume hooks</summary>
+          <summary class="text-sm text-muted" style="cursor:pointer;">{t('resume.hookSetup')}</summary>
           <div style="margin-top:8px;">
             <div class="text-sm text-muted" style="margin-bottom:4px;">
-              Connect once — then resume is automatic every time you start your AI tool.
+              {t('resume.hookDesc')}
             </div>
             <code style="display:block; padding:8px; background:var(--bg-secondary); border-radius:4px; font-size:12px; user-select:all;">
               npx @purpleraven/hits connect claude
@@ -280,7 +280,7 @@
         <div class="flex items-center gap-sm">
           <span style="font-size:24px;">💾</span>
           <div style="flex:1;">
-            <div style="font-weight:600;">{cp.purpose || 'No purpose set'}</div>
+            <div style="font-weight:600;">{cp.purpose || t('resume.noPurpose')}</div>
             <div class="text-sm text-muted">{cp.current_state || ''}</div>
           </div>
           <div class="badge badge-what">{progressBar(cp.completion_pct)}</div>
@@ -297,7 +297,7 @@
       <!-- Next Steps (always expanded) -->
       {#if cp.next_steps?.length}
         <div class="handover-section" style="border-left-color:var(--success);">
-          <h3>▶ Next Steps</h3>
+          <h3>▶ {t('resume.nextSteps')}</h3>
           {#each cp.next_steps as step, i}
             <div class="handover-item" style="display:flex; flex-direction:column; gap:2px;">
               <div class="flex items-center gap-sm">
@@ -320,7 +320,7 @@
       <!-- Must Know -->
       {#if cp.required_context?.length}
         <div class="handover-section" style="border-left-color:var(--warning);">
-          <h3>⚠ Must Know</h3>
+          <h3>⚠ {t('resume.mustKnow')}</h3>
           {#each cp.required_context as ctx}
             <div class="handover-item">• {ctx}</div>
           {/each}
@@ -331,7 +331,7 @@
       {#if cp.decisions_made?.length}
         <div class="handover-section">
           <h3 style="cursor:pointer;" onclick={() => toggleSection('decisions')}>
-            {expandedSections.decisions ? '▼' : '▶'} ★ Decisions
+            {expandedSections.decisions ? '▼' : '▶'} ★ {t('resume.decisions')}
           </h3>
           {#if expandedSections.decisions}
             {#each cp.decisions_made as d}
@@ -349,14 +349,14 @@
       {#if cp.blocks?.length}
         <div class="handover-section" style="border-left-color:var(--danger);">
           <h3 style="cursor:pointer;" onclick={() => toggleSection('blockers')}>
-            {expandedSections.blockers ? '▼' : '▶'} 🚫 Blockers
+            {expandedSections.blockers ? '▼' : '▶'} 🚫 {t('resume.blockers')}
           </h3>
           {#if expandedSections.blockers}
             {#each cp.blocks as b}
               <div class="handover-item">
                 {b.issue}
                 {#if b.workaround}
-                  <div class="text-xs" style="color:var(--success);">Workaround: {b.workaround}</div>
+                  <div class="text-xs" style="color:var(--success);">{t('resume.workaround')}: {b.workaround}</div>
                 {/if}
               </div>
             {/each}
@@ -367,7 +367,7 @@
       {#if cp.files_delta?.length}
         <div class="handover-section">
           <h3 style="cursor:pointer;" onclick={() => toggleSection('files')}>
-            {expandedSections.files ? '▼' : '▶'} 📄 Files ({cp.files_delta.length})
+            {expandedSections.files ? '▼' : '▶'} 📄 {t('resume.files')} ({cp.files_delta.length})
           </h3>
           {#if expandedSections.files}
             {#each cp.files_delta.slice(0, 10) as fd}
@@ -383,7 +383,7 @@
     <!-- ═══ PENDING SIGNALS ═══ -->
     {#if checkpointData?.signals?.length}
       <div class="handover-section" style="border-left-color:var(--warning);">
-        <h3>📬 Pending Signals</h3>
+        <h3>📬 {t('resume.pendingSignals')}</h3>
         {#each checkpointData.signals as sig}
           <div class="handover-item">
             <span class="badge" class:badge-critical={sig.priority === 'urgent'} class:badge-high={sig.priority === 'high'}>
@@ -407,7 +407,7 @@
       {#if handoverData.session_history?.length}
         <div class="handover-section" style="margin-top:16px;">
           <h3 style="cursor:pointer;" onclick={() => toggleSection('sessionHistory')}>
-            {expandedSections.sessionHistory ? '▼' : '▶'} 👥 Session History
+            {expandedSections.sessionHistory ? '▼' : '▶'} 👥 {t('resume.sessionHistory')}
           </h3>
           {#if expandedSections.sessionHistory}
             {#each handoverData.session_history as session}
@@ -425,7 +425,7 @@
       {#if handoverData.recent_logs?.length}
         <div class="handover-section">
           <h3 style="cursor:pointer;" onclick={() => toggleSection('recentWork')}>
-            {expandedSections.recentWork ? '▼' : '▶'} 📝 Recent Work
+            {expandedSections.recentWork ? '▼' : '▶'} 📝 {t('resume.recentWork')}
           </h3>
           {#if expandedSections.recentWork}
             {#each handoverData.recent_logs.slice(0, 10) as log}
@@ -451,7 +451,7 @@
     {#if !checkpointData?.checkpoint && !handoverData}
       <div class="empty-state">
         <div class="icon">▶</div>
-        <div class="message">No checkpoint available. Use hits_auto_checkpoint() at session end.</div>
+        <div class="message">{t('resume.noCheckpoint')}</div>
       </div>
     {/if}
   {/if}
@@ -460,9 +460,9 @@
   {#if showHistory}
     <div class="modal-overlay" onclick={() => showHistory = false}>
       <div class="modal" onclick={(e) => e.stopPropagation()} style="max-width:600px;">
-        <h2>📋 Checkpoint History</h2>
+        <h2>📋 {t('resume.checkpointHistory')}</h2>
         {#if checkpoints.length === 0}
-          <div class="text-muted text-sm">No checkpoints found.</div>
+          <div class="text-muted text-sm">{t('resume.noCheckpoints')}</div>
         {:else}
           {#each checkpoints as cp, i}
             <div class="handover-item" style="margin-bottom:8px;">
@@ -478,7 +478,7 @@
           {/each}
         {/if}
         <div style="margin-top:16px; text-align:right;">
-          <button class="btn btn-secondary" onclick={() => showHistory = false}>Close</button>
+          <button class="btn btn-secondary" onclick={() => showHistory = false}>{t('close')}</button>
         </div>
       </div>
     </div>

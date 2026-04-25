@@ -116,7 +116,7 @@
       editingCategory = null;
       await loadCategories();
     } else {
-      formError = res.error || 'Save failed';
+      formError = res.error || t('timeline.saveFailed');
     }
   }
 
@@ -151,7 +151,7 @@
       editingNodeIndex = null;
       await loadCategories();
     } else {
-      formError = res.error || 'Save failed';
+      formError = res.error || t('timeline.saveFailed');
     }
   }
 

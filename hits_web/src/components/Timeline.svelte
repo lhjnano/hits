@@ -150,7 +150,7 @@
       showAddModal = false;
       await loadLogs();
     } else {
-      formError = res.error || 'Save failed';
+      formError = res.error || t('timeline.saveFailed');
     }
   }
 
@@ -237,7 +237,7 @@
               {/if}
               {#if log.result_data?.files_modified?.length}
                 <div class="detail-section">
-                  <div class="detail-label">Files</div>
+                  <div class="detail-label">{t('timeline.files')}</div>
                   <div class="detail-files">
                     {#each log.result_data.files_modified as file}
                       <span class="detail-file">{file}</span>
@@ -247,7 +247,7 @@
               {/if}
               {#if log.result_data?.commands_run?.length}
                 <div class="detail-section">
-                  <div class="detail-label">Commands</div>
+                  <div class="detail-label">{t('timeline.commands')}</div>
                   <div class="detail-content" style="font-family:var(--font-mono);font-size:12px;">
                     {#each log.result_data.commands_run as cmd}
                       <div>{cmd}</div>

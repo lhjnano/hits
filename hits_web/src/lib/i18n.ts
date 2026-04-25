@@ -121,6 +121,46 @@ const translations: Record<Locale, Record<string, string>> = {
 
     // Empty states
     'empty.noData': '(No data)',
+
+    // Resume
+    'resume.title': 'Resume',
+    'resume.history': 'History',
+    'resume.selectProject': 'Select a project from the sidebar',
+    'resume.resumeWork': 'Resume Work',
+    'resume.noPurpose': 'No purpose set',
+    'resume.noState': 'No state recorded',
+    'resume.noCheckpoint': 'No checkpoint available. Use hits_auto_checkpoint() at session end.',
+    'resume.checkpointHistory': 'Checkpoint History',
+    'resume.noCheckpoints': 'No checkpoints found.',
+    'resume.nextSteps': 'Next Steps',
+    'resume.mustKnow': 'Must Know',
+    'resume.decisions': 'Decisions',
+    'resume.blockers': 'Blockers',
+    'resume.workaround': 'Workaround',
+    'resume.files': 'Files',
+    'resume.pendingSignals': 'Pending Signals',
+    'resume.sessionHistory': 'Session History',
+    'resume.recentWork': 'Recent Work',
+    'resume.noDataAvailable': 'No data available',
+    'resume.copy': 'Copy',
+    'resume.copyPrompt': 'Prompt copied — open {tool} and paste',
+    'resume.signalSent': 'Signal sent + prompt copied — open {tool} and paste',
+    'resume.nextStepsGuide': 'Next steps:',
+    'resume.guide1': 'Open your AI tool (Claude Code / OpenCode)',
+    'resume.guide2': 'Paste the copied prompt into the chat',
+    'resume.guide3': 'The AI will read the checkpoint and continue work',
+    'resume.closeGuide': 'Close guide',
+    'resume.hookSetup': 'First time? Set up auto-resume hooks',
+    'resume.hookDesc': 'Connect once — then resume is automatic every time you start your AI tool.',
+
+    // Timeline detail
+    'timeline.files': 'Files',
+    'timeline.commands': 'Commands',
+    'timeline.saveFailed': 'Save failed',
+
+    // Common extras
+    'common.switchLang': 'Switch language',
+    'app.loading': 'HITS...',
   },
 
   ko: {
@@ -236,6 +276,46 @@ const translations: Record<Locale, Record<string, string>> = {
 
     // Empty states
     'empty.noData': '(데이터 없음)',
+
+    // Resume
+    'resume.title': '이어서 작업',
+    'resume.history': '기록',
+    'resume.selectProject': '좌측 사이드바에서 프로젝트를 선택하세요',
+    'resume.resumeWork': '이어서 작업하기',
+    'resume.noPurpose': '목표가 설정되지 않았습니다',
+    'resume.noState': '상태가 기록되지 않았습니다',
+    'resume.noCheckpoint': '체크포인트가 없습니다. 세션 종료 시 hits_auto_checkpoint()를 사용하세요.',
+    'resume.checkpointHistory': '체크포인트 기록',
+    'resume.noCheckpoints': '체크포인트가 없습니다.',
+    'resume.nextSteps': '다음 단계',
+    'resume.mustKnow': '필수 정보',
+    'resume.decisions': '결정 사항',
+    'resume.blockers': '차단 요소',
+    'resume.workaround': '우회 방법',
+    'resume.files': '파일',
+    'resume.pendingSignals': '대기 중인 시그널',
+    'resume.sessionHistory': '작업 이력',
+    'resume.recentWork': '최근 작업',
+    'resume.noDataAvailable': '데이터 없음',
+    'resume.copy': '복사',
+    'resume.copyPrompt': '프롬프트 복사됨 — {tool}을 열고 붙여넣으세요',
+    'resume.signalSent': '시그널 전송 + 프롬프트 복사됨 — {tool}을 열고 붙여넣으세요',
+    'resume.nextStepsGuide': '다음 단계:',
+    'resume.guide1': 'AI 도구를 엽니다 (Claude Code / OpenCode)',
+    'resume.guide2': '복사한 프롬프트를 채팅에 붙여넣습니다',
+    'resume.guide3': 'AI가 체크포인트를 읽고 작업을 이어갑니다',
+    'resume.closeGuide': '가이드 닫기',
+    'resume.hookSetup': '처음이신가요? 자동 이어하기 훅 설정',
+    'resume.hookDesc': '한 번 연결하면 AI 도구를 시작할 때마다 자동으로 이어하기가 활성화됩니다.',
+
+    // Timeline detail
+    'timeline.files': '파일',
+    'timeline.commands': '명령어',
+    'timeline.saveFailed': '저장 실패',
+
+    // Common extras
+    'common.switchLang': '언어 전환',
+    'app.loading': 'HITS...',
   },
 };
 
@@ -244,7 +324,7 @@ const translations: Record<Locale, Record<string, string>> = {
 type Listener = () => void;
 
 class LocaleStore {
-  private _value: Locale = 'ko';
+  private _value: Locale = 'en';
   private _listeners: Set<Listener> = new Set();
 
   constructor() {
@@ -252,7 +332,7 @@ class LocaleStore {
   }
 
   private _detect(): Locale {
-    if (typeof window === 'undefined') return 'ko';
+    if (typeof window === 'undefined') return 'en';
     const saved = localStorage.getItem('hits-locale');
     if (saved === 'en' || saved === 'ko') return saved;
     const nav = navigator.language || '';
