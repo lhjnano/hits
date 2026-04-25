@@ -152,6 +152,8 @@ const translations: Record<Locale, Record<string, string>> = {
     'resume.closeGuide': 'Close guide',
     'resume.hookSetup': 'First time? Set up auto-resume hooks',
     'resume.hookDesc': 'Connect once — then resume is automatic every time you start your AI tool.',
+    'resume.projectTips': 'Project Know-How',
+    'resume.projectTipsDesc': 'Knowledge tips from this project',
 
     // Timeline detail
     'timeline.files': 'Files',
@@ -307,6 +309,8 @@ const translations: Record<Locale, Record<string, string>> = {
     'resume.closeGuide': '가이드 닫기',
     'resume.hookSetup': '처음이신가요? 자동 이어하기 훅 설정',
     'resume.hookDesc': '한 번 연결하면 AI 도구를 시작할 때마다 자동으로 이어하기가 활성화됩니다.',
+    'resume.projectTips': '프로젝트 노하우',
+    'resume.projectTipsDesc': '이 프로젝트의 지식 팁',
 
     // Timeline detail
     'timeline.files': '파일',

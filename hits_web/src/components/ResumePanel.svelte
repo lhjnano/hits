@@ -18,6 +18,7 @@
     achieved: true,
     nextSteps: true,
     mustKnow: true,
+    projectTips: true,
     decisions: false,
     blockers: false,
     files: false,
@@ -184,6 +185,19 @@
       lines.push(checkpointData.compressed);
     }
 
+    // Knowledge Tips
+    const tips = checkpointData?.checkpoint?.knowledge_tips;
+    if (tips?.length) {
+      lines.push('');
+      lines.push(`## ${t('resume.projectTips')}`);
+      for (const tip of tips) {
+        const icon = tip.negative ? '🚫' : tip.layer === 'how' ? '🔧' : tip.layer === 'why' ? '🎯' : '📄';
+        let line = `${icon} ${tip.name}`;
+        if (tip.action) line += ` → ${tip.action}`;
+        lines.push(line);
+      }
+    }
+
     return lines.join('\n');
   }
 
@@ -324,6 +338,38 @@
           {#each cp.required_context as ctx}
             <div class="handover-item">• {ctx}</div>
           {/each}
+        </div>
+      {/if}
+
+      <!-- Project Know-How (from Knowledge Tree) -->
+      {#if cp.knowledge_tips?.length}
+        <div class="handover-section" style="border-left-color:var(--info, #4a9eff);">
+          <h3 style="cursor:pointer;" onclick={() => toggleSection('projectTips')}>
+            {expandedSections.projectTips ? '▼' : '▶'} 💡 {t('resume.projectTips')}
+          </h3>
+          {#if expandedSections.projectTips}
+            {#each cp.knowledge_tips as tip}
+              <div class="handover-item" style="display:flex; align-items:flex-start; gap:6px;">
+                {#if tip.negative}
+                  <span style="color:var(--danger); flex-shrink:0;">🚫</span>
+                {:else if tip.layer === 'how'}
+                  <span style="color:var(--info, #4a9eff); flex-shrink:0;">🔧</span>
+                {:else if tip.layer === 'why'}
+                  <span style="color:var(--warning); flex-shrink:0;">🎯</span>
+                {:else}
+                  <span style="color:var(--text-muted); flex-shrink:0;">📄</span>
+                {/if}
+                <div style="flex:1; min-width:0;">
+                  <span>{tip.name}</span>
+                  {#if tip.action}
+                    <div class="text-xs text-muted" style="margin-top:2px; font-family:var(--font-mono);">
+                      → {tip.action}
+                    </div>
+                  {/if}
+                </div>
+              </div>
+            {/each}
+          {/if}
         </div>
       {/if}
 

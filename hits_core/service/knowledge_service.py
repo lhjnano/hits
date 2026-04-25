@@ -170,3 +170,55 @@ class KnowledgeService:
     def to_config_dict(self) -> dict:
         categories = self._load_categories()
         return {"categories": [cat.to_dict() for cat in categories]}
+
+    def get_project_tips(self, project_name: str) -> list[dict]:
+        """Get knowledge tips for a project, optimized for resume injection.
+
+        Returns a list of dicts with keys: layer, name, action, negative, source_category.
+        Prioritizes HOW and NEG nodes (actionable know-how) over WHY and WHAT.
+        """
+        categories = self._load_categories()
+
+        # Find matching category (exact match first, then fuzzy)
+        category = None
+        for cat in categories:
+            if cat.name == project_name:
+                category = cat
+                break
+
+        # Also try matching against full project path segments
+        if category is None:
+            for cat in categories:
+                # Match partial: category name is in project path or vice versa
+                if cat.name.lower() in project_name.lower() or project_name.lower() in cat.name.lower():
+                    category = cat
+                    break
+
+        if category is None:
+            return []
+
+        tips = []
+        priority_order = {"how": 0, "neg": 0, "what": 1, "why": 2}
+        # negative_path items are also high priority
+
+        for item in category.items:
+            if not isinstance(item, KnowledgeNode):
+                continue
+
+            layer = item.layer
+            if item.negative_path:
+                layer = "neg"
+
+            tips.append({
+                "layer": layer,
+                "name": item.name,
+                "action": item.action if item.action else None,
+                "negative": item.negative_path,
+                "source_category": category.name,
+                "_priority": priority_order.get(layer, 3),
+            })
+
+        # Sort: HOW and NEG first (actionable), then WHAT, then WHY
+        tips.sort(key=lambda t: (t.pop("_priority"), t["negative"]))
+
+        return tips

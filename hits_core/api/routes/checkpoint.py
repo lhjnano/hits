@@ -2,11 +2,14 @@
 
 from fastapi import APIRouter, Depends, Query
 from typing import Optional
+from pathlib import Path
 
 from ...service.checkpoint_service import CheckpointService
 from ...service.signal_service import SignalService
+from ...service.knowledge_service import KnowledgeService
 from ...ai.checkpoint_compressor import CheckpointCompressor
 from ...storage.file_store import FileStorage
+from ...models.checkpoint import KnowledgeTip
 from hits_core.auth.dependencies import require_auth
 
 router = APIRouter()
@@ -15,6 +18,7 @@ _storage = FileStorage()
 _cp_service = CheckpointService(storage=_storage)
 _sig_service = SignalService()
 _compressor = CheckpointCompressor()
+_ks = KnowledgeService(data_path=Path.home() / ".hits" / "data" / "knowledge.json")
 
 
 @router.get("/checkpoint/resume")
@@ -53,6 +57,21 @@ async def get_resume(
     # Get checkpoint
     checkpoint = await _cp_service.get_latest_checkpoint(project_path)
     if checkpoint:
+        # Inject knowledge tips from project knowledge tree
+        project_name = project_path.rstrip("/").split("/")[-1]
+        tips_raw = _ks.get_project_tips(project_name)
+        if tips_raw:
+            checkpoint.knowledge_tips = [
+                KnowledgeTip(
+                    layer=t["layer"],
+                    name=t["name"],
+                    action=t.get("action"),
+                    negative=t.get("negative", False),
+                    source_category=t.get("source_category"),
+                )
+                for t in tips_raw[:15]  # Cap at 15 tips
+            ]
+
         result["checkpoint"] = checkpoint.model_dump()
         result["compressed"] = _compressor.compress_checkpoint(checkpoint, token_budget)
 

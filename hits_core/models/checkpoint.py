@@ -63,6 +63,15 @@ class Decision(BaseModel):
     alternatives_rejected: list[str] = Field(default_factory=list)
 
 
+class KnowledgeTip(BaseModel):
+    """A single knowledge tip injected from the project's knowledge tree at resume time."""
+    layer: str = Field(default="how", description="WHY/HOW/WHAT/NEG")
+    name: str = Field(..., description="Short description")
+    action: Optional[str] = Field(default=None, description="Actionable reference (command, URL, file)")
+    negative: bool = Field(default=False, description="Is this a negative-path (what NOT to do)?")
+    source_category: Optional[str] = Field(default=None, description="Knowledge category this came from")
+
+
 class Checkpoint(BaseModel):
     """Structured, actionable session checkpoint.
 
@@ -118,6 +127,11 @@ class Checkpoint(BaseModel):
 
     # Parent checkpoint (for chaining)
     parent_checkpoint_id: Optional[str] = Field(default=None)
+
+    # Knowledge tips injected from project knowledge tree at resume time
+    # These are NOT saved in checkpoint files — they are computed on-the-fly
+    # during resume to always reflect the latest knowledge state.
+    knowledge_tips: list[KnowledgeTip] = Field(default_factory=list)
 
     def to_text(self) -> str:
         """Generate token-efficient text representation for AI context.
@@ -207,6 +221,20 @@ class Checkpoint(BaseModel):
             lines.append(f"```bash")
             lines.append(self.resume_command)
             lines.append("```")
+            lines.append("")
+
+        # Knowledge tips (project know-how)
+        if self.knowledge_tips:
+            lines.append("### PROJECT KNOW-HOW")
+            for tip in self.knowledge_tips:
+                icon = {"why": "🎯", "how": "🔧", "what": "📄"}.get(tip.layer, "💡")
+                if tip.negative:
+                    icon = "🚫"
+                line = f"  {icon} {tip.name}"
+                if tip.action:
+                    line += f" → {tip.action}"
+                lines.append(line)
+            lines.append("")
 
         return "\n".join(lines)
 
