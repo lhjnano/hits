@@ -196,53 +196,70 @@ Claude → OpenCode → Cursor. File-based, no server needed. Hooks auto-inject 
 
 These features are in early development. They work, but APIs and UX may change.
 
-### Task Management with Slack Sync
+### Task-Centric Resume with Slack Sync
 
-A lightweight task board built into HITS — designed for **solo developers and small teams** who track work across machines and want to sync via Slack.
+Tasks aren't a separate to-do list — they're **the unit of work you resume into**. Each task can be started, paused, and resumed with full checkpoint context.
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│  📌 Tasks                                  + Add Task    │
+│  ▶ my-project                            + Add Task  🔄  │
 │                                                           │
-│  ● 2 channels connected            ⚙️ Slack Settings     │
+│  🔄 작업 중 (1)                                           │
+│  ┌──────────────────────────────────────────────────┐    │
+│  │  🔴 Fix login 500 error       📂 app  💻 Local   │    │
+│  │  Users report 500 on POST /login                  │    │
+│  │  [📋 Copy]  [📤 Export]  [✅ Done]                │    │
+│  └──────────────────────────────────────────────────┘    │
 │                                                           │
-│  All (5)  |  Active (3)  |  Done (2)  |  💬 #dev-tasks   │
-│  ─────────────────────────────────────────────────────── │
+│  📋 대기 중 (2)                                           │
+│  ┌──────────────────────────────────────────────────┐    │
+│  │  🔵 Add dark mode toggle                 💻 Local │    │
+│  │  [▶ 작업 시작]  [✏️ Edit]                         │    │
+│  └──────────────────────────────────────────────────┘    │
+│  ┌──────────────────────────────────────────────────┐    │
+│  │  🟠 Review API docs              💬 #dev-tasks    │    │
+│  │  ⚠️ DESKTOP-OFFICE / Windows                      │    │
+│  │  [▶ 작업 시작]                                    │    │
+│  └──────────────────────────────────────────────────┘    │
 │                                                           │
-│  🔴 Fix login 500 error              📂 app  💻 Local    │
-│     Users report 500 on POST /login                      │
-│     [✅ Done]  [📤 Export]  [✏️ Edit]                     │
-│                                                           │
-│  🔵 Add dark mode toggle                       💻 Local   │
-│     [✅ Done]  [📤 Export]  [✏️ Edit]                     │
-│                                                           │
-│  🟠 Review API docs                  💬 #dev-tasks        │
-│     ⚠️ Different environment — DESKTOP-OFFICE Windows     │
-│     [✅ Done]  [📤 Export]  [✏️ Edit]                     │
-│                                                           │
+│  ✅ 완료 (3)                                              │
 └──────────────────────────────────────────────────────────┘
 ```
 
-**What it does:**
+**How it works:**
 
-- **Create, edit, reopen, complete tasks** — full lifecycle, not just done/delete
-- **Filter by status or Slack channel** — see only what matters
-- **Export tasks to Slack** — send a task to a channel via webhook
-- **Import tasks from Slack** — pull messages from a channel as tasks
-- **Environment-awareness** — tasks created on another machine carry hostname, OS info. UI warns you to verify paths before acting on them.
-- **Priority levels** — Critical 🔴 / High 🟠 / Medium 🔵 / Low ⚪
+1. **Create or import a task** — from local, or import from Slack
+2. **[▶ Start Work]** — creates a checkpoint linked to this task
+3. **[📋 Copy Resume]** — generates a task-aware prompt with checkpoint context, paste into your AI
+4. **AI works on it** — auto-checkpoint saves progress to this task
+5. **[▶ Start Work] again** — resumes the existing checkpoint, picks up where you left off
+6. **[✅ Done]** — mark complete, optionally export result to Slack
 
-**How to set up Slack sync:**
+**Why tasks, not just projects?**
 
-```bash
-# 1. Open HITS Web UI → 📌 Tasks tab → ⚙️ Slack Settings
-# 2. Add a channel:
-#    Name:   #dev-tasks
-#    Webhook: https://hooks.slack.com/services/T.../B.../xxx
-# 3. Now you can export tasks to that channel, or import from it
+| Project-level resume | Task-level resume |
+|---|---|
+| "What was I doing on this project?" | "Where am I on fixing the login bug?" |
+| One checkpoint per project | One checkpoint per task |
+| Loses context when switching between features | Each task carries its own full context |
+
+**Slack sync for teams:**
+
+- **Export**: Send task + checkpoint to a Slack channel via webhook
+- **Import**: Pull tasks from Slack (requires Bot Token + Channel ID)
+- **Environment-aware**: Tasks from other machines carry hostname/OS info. UI warns you to verify paths.
+
+**Setup Slack:**
+
 ```
-
-> **Why Slack, not Git?** Designers, PMs, and office workers don't use Git. Slack is the common ground. Tasks flow in from Slack, get worked on locally, and results flow back out.
+1. HITS Web UI → ⚙️ Slack button
+2. Add channel:
+   - Channel name: #dev-tasks
+   - Webhook URL: https://hooks.slack.com/services/...  (for export)
+3. Advanced (for import):
+   - Bot Token: xoxb-...  (api.slack.com/apps → channels:history scope)
+   - Channel ID: C0XXXXXX
+```
 
 **API endpoints:**
 
@@ -252,7 +269,8 @@ A lightweight task board built into HITS — designed for **solo developers and 
 | `POST` | `/api/tasks` | Create a task |
 | `PUT` | `/api/tasks/{id}` | Update a task |
 | `DELETE` | `/api/tasks/{id}` | Delete a task |
-| `POST` | `/api/tasks/{id}/export` | Export task to Slack channel |
+| `POST` | `/api/tasks/{id}/start` | Start/resume task (creates/loads checkpoint) |
+| `POST` | `/api/tasks/{id}/export` | Export task + checkpoint to Slack |
 | `GET` | `/api/tasks/slack/channels` | List configured Slack channels |
 | `POST` | `/api/tasks/slack/channels` | Add a Slack channel |
 | `DELETE` | `/api/tasks/slack/channels/{name}` | Remove a Slack channel |

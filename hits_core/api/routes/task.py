@@ -201,6 +201,7 @@ async def start_task(
     Sets status to 'in_progress' and creates a checkpoint linked to this task.
     If the task already has a checkpoint, returns that checkpoint for resume.
     """
+    from hits_core.models.checkpoint import Checkpoint, NextStep
     from hits_core.service.checkpoint_service import CheckpointService
     
     tasks = _load_tasks()
@@ -219,35 +220,55 @@ async def start_task(
         task["completed_at"] = None
     
     cp_service = CheckpointService()
+    project_path = task.get("project_path", "")
     
     # If already in_progress with a checkpoint, return it for resume
     if task["status"] == "in_progress" and task.get("checkpoint_id"):
-        checkpoint = await cp_service.get_checkpoint(task["checkpoint_id"], task.get("project_path", ""))
-        if checkpoint:
-            _save_tasks(tasks)
-            return {
-                "success": True,
-                "data": {
-                    "task": task,
-                    "checkpoint": checkpoint.model_dump(),
-                    "action": "resumed",
+        try:
+            checkpoint = await cp_service.get_checkpoint(task["checkpoint_id"], project_path)
+            if checkpoint:
+                _save_tasks(tasks)
+                return {
+                    "success": True,
+                    "data": {
+                        "task": task,
+                        "checkpoint": checkpoint.model_dump(),
+                        "action": "resumed",
+                    }
                 }
-            }
+        except Exception:
+            pass  # Fall through to create new
     
-    # Create new checkpoint for this task
+    # Create a lightweight checkpoint directly (avoid auto_checkpoint's subprocess/git calls)
     checkpoint_id = f"cp_{uuid4().hex[:8]}"
-    project_path = task.get("project_path", "")
     
-    checkpoint = await cp_service.auto_checkpoint(
-        project_path=project_path or "/tmp",
-        performer="manual",
+    checkpoint = Checkpoint(
+        id=checkpoint_id,
         purpose=task["title"],
         current_state=task.get("context", ""),
+        completion_pct=0,
+        next_steps=[],
+        required_context=[],
+        decisions_made=[],
+        blocks=[],
+        files_delta=[],
+        performer="manual",
+        project_path=project_path,
+        git_branch=None,
+        created_at=datetime.now().isoformat(),
+        commands_run=[],
+        resume_command=f"npx @purpleraven/hits resume --project {project_path}" if project_path else "",
     )
+    
+    # Save checkpoint
+    try:
+        await cp_service._save_checkpoint(checkpoint)
+    except Exception:
+        pass  # Non-critical — task still starts
     
     # Link to task
     task["status"] = "in_progress"
-    task["checkpoint_id"] = checkpoint.id
+    task["checkpoint_id"] = checkpoint_id
     _save_tasks(tasks)
     
     return {
