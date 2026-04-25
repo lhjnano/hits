@@ -27,7 +27,9 @@
 
 SIGNALS_DIR="$HOME/.hits/data/signals/pending"
 CHECKPOINT_DIR="$HOME/.hits/data/checkpoints"
-RECIPIENT="claude"
+# Show ALL pending signals regardless of recipient
+# User may have sent from Web UI to opencode, claude, or any
+RECIPIENT=""  # Empty = match all
 
 # ── Parse hook input from stdin ───────────────────────────────
 
@@ -75,7 +77,7 @@ try:
 except: print('any')
 " 2>/dev/null)
 
-        if [ "$recipient" = "$RECIPIENT" ] || [ "$recipient" = "any" ]; then
+        if [ "$recipient" = "$RECIPIENT" ] || [ "$recipient" = "any" ] || [ "$recipient" = "opencode" ] || [ "$recipient" = "claude" ] || [ -n "$recipient" ]; then
             summary=$(python3 -c "
 import json
 try:

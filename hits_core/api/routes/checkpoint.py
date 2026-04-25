@@ -35,45 +35,56 @@ async def get_resume(
         "compressed": None,
     }
 
-    # Check signals
-    signals = await _sig_service.check_signals(recipient="any", project_path=project_path)
-    if signals:
-        result["signals"] = [
-            {
-                "id": s.id,
-                "sender": s.sender,
-                "summary": s.summary,
-                "priority": s.priority,
-                "pending_items": s.pending_items,
-            }
-            for s in signals
-        ]
-
-        # Auto-consume if performer specified
-        if performer:
-            for sig in signals:
-                await _sig_service.consume_signal(sig.id, performer)
-
-    # Get checkpoint
-    checkpoint = await _cp_service.get_latest_checkpoint(project_path)
-    if checkpoint:
-        # Inject knowledge tips from project knowledge tree
-        project_name = project_path.rstrip("/").split("/")[-1]
-        tips_raw = _ks.get_project_tips(project_name)
-        if tips_raw:
-            checkpoint.knowledge_tips = [
-                KnowledgeTip(
-                    layer=t["layer"],
-                    name=t["name"],
-                    action=t.get("action"),
-                    negative=t.get("negative", False),
-                    source_category=t.get("source_category"),
-                )
-                for t in tips_raw[:15]  # Cap at 15 tips
+    try:
+        # Check signals
+        signals = await _sig_service.check_signals(recipient="any", project_path=project_path)
+        if signals:
+            result["signals"] = [
+                {
+                    "id": s.id,
+                    "sender": s.sender,
+                    "summary": s.summary,
+                    "priority": s.priority,
+                    "pending_items": s.pending_items,
+                }
+                for s in signals
             ]
 
-        result["checkpoint"] = checkpoint.model_dump()
-        result["compressed"] = _compressor.compress_checkpoint(checkpoint, token_budget)
+            # Auto-consume if performer specified
+            if performer:
+                for sig in signals:
+                    await _sig_service.consume_signal(sig.id, performer)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Signal check failed: {e}")
+
+    try:
+        # Get checkpoint
+        checkpoint = await _cp_service.get_latest_checkpoint(project_path)
+        if checkpoint:
+            # Inject knowledge tips from project knowledge tree
+            project_name = project_path.rstrip("/").split("/")[-1]
+            tips_raw = _ks.get_project_tips(project_name)
+            if tips_raw:
+                checkpoint.knowledge_tips = [
+                    KnowledgeTip(
+                        layer=t["layer"],
+                        name=t["name"],
+                        action=t.get("action"),
+                        negative=t.get("negative", False),
+                        source_category=t.get("source_category"),
+                    )
+                    for t in tips_raw[:15]  # Cap at 15 tips
+                ]
+
+            result["checkpoint"] = checkpoint.model_dump()
+            try:
+                result["compressed"] = _compressor.compress_checkpoint(checkpoint, token_budget)
+            except Exception:
+                pass  # Compression is optional
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Checkpoint load failed: {e}")
 
     return {"success": True, "data": result}
 

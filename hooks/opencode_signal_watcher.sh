@@ -15,7 +15,7 @@
 # ──────────────────────────────────────────────────────────────
 
 SIGNALS_DIR="$HOME/.hits/data/signals/pending"
-RECIPIENT="opencode"
+RECIPIENT=""  # Empty = show all pending signals
 
 # 시그널 디렉토리가 없으면 종료
 if [ ! -d "$SIGNALS_DIR" ]; then
@@ -36,7 +36,7 @@ try:
 except: print('any')
 " 2>/dev/null)
 
-    if [ "$recipient" = "$RECIPIENT" ] || [ "$recipient" = "any" ]; then
+    if [ -n "$recipient" ]; then
         summary=$(python3 -c "
 import json
 try:
