@@ -2,32 +2,32 @@
 # ──────────────────────────────────────────────────────────────
 # HITS Signal Watcher for OpenCode
 #
-# OpenCode에서 파일 감시 방식으로 사용:
-#   ~/.config/opencode/opencode.json hooks 설정 또는
-#   프로젝트 .opencode/hooks/ 에 배치
+# Usage with OpenCode file watching:
+#   Configure in ~/.config/opencode/opencode.json hooks, or
+#   Place in project .opencode/hooks/
 #
-# 두 가지 사용 방식:
-#   1. SessionStart에서 실행 (세션 시작 시 1회 확인)
-#   2. FileChanged 훅으로 ~/.hits/signals/pending/ 감시
+# Two usage modes:
+#   1. Run on SessionStart (check once at session start)
+#   2. Use as FileChanged hook watching ~/.hits/signals/pending/
 #
-# 동작: ~/.hits/signals/pending/ 에 대기 중인 시그널이 있으면
-#       stderr로 메시지를 출력하여 OpenCode 세션에 자동 주입
+# Behavior: When pending signals exist in ~/.hits/signals/pending/,
+#           outputs messages to stderr for automatic injection into OpenCode session.
 # ──────────────────────────────────────────────────────────────
 
 SIGNALS_DIR="$HOME/.hits/data/signals/pending"
-RECIPIENT="opencode"
+RECIPIENT=""  # Empty = show all pending signals
 
-# 시그널 디렉토리가 없으면 종료
+# Exit if signals directory does not exist
 if [ ! -d "$SIGNALS_DIR" ]; then
     exit 0
 fi
 
-# pending/ 에서 opencode 또는 any 대상 시그널 찾기
+# Find pending signals targeting opencode or any
 FOUND=0
 for sig_file in "$SIGNALS_DIR"/*.json; do
     [ -f "$sig_file" ] || continue
 
-    # JSON에서 recipient 추출
+    # Extract recipient from JSON
     recipient=$(python3 -c "
 import json
 try:
@@ -36,7 +36,7 @@ try:
 except: print('any')
 " 2>/dev/null)
 
-    if [ "$recipient" = "$RECIPIENT" ] || [ "$recipient" = "any" ]; then
+    if [ -n "$recipient" ]; then
         summary=$(python3 -c "
 import json
 try:
@@ -79,11 +79,11 @@ if [ "$FOUND" -eq 0 ]; then
 fi
 
 # ── Auto Resume ────────────────────────────────────────────
-# 현재 프로젝트에 checkpoint가 있으면 자동으로 resume 정보 제공
+# If checkpoint exists for current project, provide resume info automatically
 CHECKPOINT_DIR="$HOME/.hits/data/checkpoints"
 CWD_PROJECT=""
 
-# CWD에서 git root 탐색
+# Walk up from CWD to find git root
 current="$(pwd)"
 for i in $(seq 1 10); do
     if [ -d "$current/.git" ]; then
@@ -96,12 +96,12 @@ for i in $(seq 1 10); do
 done
 
 if [ -n "$CWD_PROJECT" ]; then
-    # 프로젝트 경로를 디렉토리명으로 변환 (/home/user/project → _home_user_project)
+    # Convert project path to directory key (/home/user/project → _home_user_project)
     PROJECT_KEY=$(echo "$CWD_PROJECT" | sed 's|/|_|g')
     LATEST_CP="$CHECKPOINT_DIR/$PROJECT_KEY/latest.json"
 
     if [ -f "$LATEST_CP" ]; then
-        # Checkpoint 내용을 stderr로 출력
+        # Output checkpoint content to stderr
         python3 -c "
 import json
 try:

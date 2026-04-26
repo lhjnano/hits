@@ -64,6 +64,7 @@ function log(msg) {
 function installOpenCode() {
   const OPENCODE_DIR = path.join(HOME, '.config', 'opencode');
   const configFile = path.join(OPENCODE_DIR, 'opencode.json');
+  const instructionsDir = path.join(OPENCODE_DIR, 'instructions');
 
   // Only configure if OpenCode is already installed
   if (!fs.existsSync(OPENCODE_DIR)) {
@@ -87,31 +88,65 @@ function installOpenCode() {
   }
   if (!config.mcp) config.mcp = {};
 
+  let configChanged = false;
+
   // Check if already registered
   if (config.mcp['hits']) {
     log('  ↩ hits MCP already registered in OpenCode');
-    return true;
+  } else {
+    // Add hits MCP server
+    config.mcp['hits'] = {
+      type: 'local',
+      command: ['npx', 'hits-mcp'],
+      enabled: true,
+    };
+    configChanged = true;
   }
 
-  // Add hits MCP server
-  config.mcp['hits'] = {
-    type: 'local',
-    command: ['npx', 'hits-mcp'],
-    enabled: true,
-  };
+  // Install instructions file for auto-resume guidance
+  const hitsResumeMd = path.join(instructionsDir, 'hits-resume.md');
+  const resumeContent = `# HITS Session Resume
 
-  // Backup before overwrite
-  if (fs.existsSync(configFile)) {
-    const backup = configFile + `.backup.${Date.now()}`;
-    fs.copyFileSync(configFile, backup);
+At the start of every new session, BEFORE doing anything else:
+
+1. Call \`hits_resume()\` to check for pending handover signals and load the last checkpoint.
+2. If signals are found, read them carefully and ask the user if they want to continue that work.
+3. If a checkpoint exists, use it as the starting context for this session.
+
+At the end of every session (or when context is running low):
+- Call \`hits_auto_checkpoint()\` with a summary of what was accomplished and what remains.
+
+This ensures continuity across sessions and AI tools (Claude Code, OpenCode, etc.).
+`;
+
+  ensureDir(instructionsDir);
+  if (!fs.existsSync(hitsResumeMd)) {
+    fs.writeFileSync(hitsResumeMd, resumeContent);
+    log('  ✓ instructions/hits-resume.md created');
+  } else {
+    log('  ↩ instructions/hits-resume.md already exists');
   }
 
-  ensureDir(path.dirname(configFile));
-  fs.writeFileSync(configFile, JSON.stringify(config, null, 2));
-  log('  ✓ opencode.json updated (hits MCP server registered)');
+  // Register instructions pattern in config
+  if (!config.instructions || !config.instructions.includes('instructions/*.md')) {
+    config.instructions = ['instructions/*.md'];
+    configChanged = true;
+  }
+
+  if (configChanged) {
+    // Backup before overwrite
+    if (fs.existsSync(configFile)) {
+      const backup = configFile + `.backup.${Date.now()}`;
+      fs.copyFileSync(configFile, backup);
+    }
+
+    ensureDir(path.dirname(configFile));
+    fs.writeFileSync(configFile, JSON.stringify(config, null, 2));
+    log('  ✓ opencode.json updated');
+  }
 
   log('');
-  log(`✓ OpenCode configured`);
+  log(`✓ OpenCode configured (MCP + auto-resume instructions)`);
   return true;
 }
 
