@@ -21,6 +21,7 @@ if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
 from hits_core.storage.file_store import FileStorage
+from hits_core import __version__
 from hits_core.models.work_log import WorkLog, WorkLogSource, WorkLogResultType
 from hits_core.service.handover_service import HandoverService
 from hits_core.service.signal_service import SignalService
@@ -455,7 +456,7 @@ class HITSMCPServer:
 
     SERVER_INFO = {
         "name": "hits-mcp",
-        "version": "0.1.0",
+        "version": __version__,
     }
 
     CAPABILITIES = {
