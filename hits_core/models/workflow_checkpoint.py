@@ -11,7 +11,7 @@ Key concepts:
 Usage:
     wf = WorkflowCheckpoint(
         workflow_id="wf_abc123",
-        project_path="/home/user/project",
+        project_path="/path/to/project",
         name="ML Development Pipeline",
         stages=[
             StageDefinition(id="s1", name="Data Collection", agent="data-collector"),
