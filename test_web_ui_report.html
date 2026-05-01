@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>HITS Web UI Test Report</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; background: #1a1a2e; color: #eee; }
+  h1 { color: #3b82f6; }
+  h2 { color: #8b5cf6; margin-top: 24px; }
+  .pass { color: #22c55e; }
+  .fail { color: #ef4444; }
+  .summary { background: #16213e; padding: 16px; border-radius: 8px; margin: 16px 0; }
+  .panel { background: #16213e; padding: 16px; border-radius: 8px; margin: 16px 0; border-left: 4px solid #3b82f6; }
+  .data-row { display: flex; justify-content: space-between; padding: 4px 8px; border-radius: 4px; font-size: 13px; }
+  .data-row:nth-child(even) { background: rgba(255,255,255,0.03); }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .badge-pass { background: #22c55e; color: #fff; }
+  .badge-fail { background: #ef4444; color: #fff; }
+  pre { background: #0f0f23; padding: 12px; border-radius: 6px; font-size: 11px; overflow-x: auto; }
+</style>
+</head>
+<body>
+<h1>🧪 HITS Web UI Test Report</h1>
+<div class="summary">
+  <strong>Overall: <span class="pass">36/36 passed</span></strong><br>
+  <span style="color:#aaa">Generated at: 2026-05-01 20:50:24</span>
+</div>
+<div class="panel">
+<h2>📊 Token Dashboard</h2>
+<pre>[1m📊 Token Dashboard[0m
+--------------------------------------------------
+  [92m✅ PASS[0m top-projects API responds
+  [92m✅ PASS[0m Has >= 2 projects
+  [92m✅ PASS[0m Top project has tokens
+  [92m✅ PASS[0m Top project has cost
+    📂 test-app: 275,800 tokens, $0.8274, 56 records
+  [92m✅ PASS[0m project stats API responds
+  [92m✅ PASS[0m Stats has total_tokens
+  [92m✅ PASS[0m Stats has breakdown
+  [92m✅ PASS[0m daily usage API responds
+  [92m✅ PASS[0m Has daily data</pre>
+</div>
+<div class="panel">
+<h2>🔄 Workflow Pipeline</h2>
+<pre>[1m🔄 Workflow Pipeline[0m
+--------------------------------------------------
+  [92m✅ PASS[0m workflow list API responds
+  [92m✅ PASS[0m Has >= 2 workflows
+    🔄 ML Development Pipeline: running (5 stages)
+    🔄 Code Review Pipeline: failed (3 stages)
+  [92m✅ PASS[0m workflow detail API responds
+  [92m✅ PASS[0m Has progress_pct
+  [92m✅ PASS[0m Has stages
+  [92m✅ PASS[0m Has stage_checkpoints
+  [92m✅ PASS[0m Has completed_count
+    📊 ML Development Pipeline: 40.0% complete
+      ✅ Data Collection [completed]
+      ✅ Model Design [completed]
+      ▶️ Training & Optimization [running]
+      ⏳ Evaluation [pending]
+      ⏳ Deployment [pending]
+  [92m✅ PASS[0m workflow context API responds</pre>
+</div>
+<div class="panel">
+<h2>🌳 Context DAG</h2>
+<pre>[1m🌳 Context DAG[0m
+--------------------------------------------------
+  [92m✅ PASS[0m DAG list API responds
+  [92m✅ PASS[0m Has >= 1 DAG
+    🌳 test-app: 8 nodes (5 raw, 3 summary)
+  [92m✅ PASS[0m DAG detail API responds
+  [92m✅ PASS[0m DAG has nodes
+  [92m✅ PASS[0m DAG has node list
+  [92m✅ PASS[0m DAG has edges list
+  [92m✅ PASS[0m DAG has level breakdown
+    📊 Levels: L0=5, L1=2, L2=1, L3=0
+      📄 [L0] Implement token tracker service
+      📄 [L0] Fix performer bug in MCP server
+      📄 [L0] Add DAG context browser UI
+      📄 [L0] Write scenario tests
+      📄 [L0] WebSocket event bus implementation
+  [92m✅ PASS[0m DAG search API responds
+  [92m✅ PASS[0m Search finds results
+  [92m✅ PASS[0m DAG lineage API responds
+  [92m✅ PASS[0m Lineage returns a non-empty list</pre>
+</div>
+<div class="panel">
+<h2>🌐 HTML UI</h2>
+<pre>[1m🌐 HTML UI[0m
+--------------------------------------------------
+  [92m✅ PASS[0m Index HTML loaded
+  [92m✅ PASS[0m HTML mentions HITS
+  [92m✅ PASS[0m Svelte JS bundle referenced
+  [92m✅ PASS[0m Token Dashboard code in bundle
+  [92m✅ PASS[0m Workflow Panel code in bundle
+  [92m✅ PASS[0m DAG Browser code in bundle
+  [92m✅ PASS[0m workflow API methods in bundle
+  [92m✅ PASS[0m DAG API methods in bundle</pre>
+</div>
+<h2>📡 Raw API Responses</h2>
+<div class="panel">
+<h3>GET /token/top-projects</h3>
+<pre>{
+  "success": true,
+  "data": [
+    {
+      "project_path": "/projects/test-app",
+      "project_name": "test-app",
+      "total_records": 56,
+      "total_tokens_in": 179550,
+      "total_tokens_out": 96250,
+      "total_tokens": 275800,
+      "total_cost_usd": 0.8274,
+      "avg_tokens_per_record": 4925.0,
+      "avg_tokens_per_day": 19700.0,
+      "by_performer": {
+        "claude": 185500,
+        "opencode": 90300
+      },
+      "by_model": {
+        "claude-3.5-sonnet": 185500,
+        "g</pre>
+</div>
+<div class="panel">
+<h3>GET /workflow/list</h3>
+<pre>{
+  "success": true,
+  "data": [
+    {
+      "workflow_id": "wf_add784c4",
+      "project_path": "/projects/test-app",
+      "project_name": "test-app",
+      "name": "ML Development Pipeline",
+      "stages": [
+        {
+          "id": "s1",
+          "name": "Data Collection",
+          "description": "",
+          "agent": "data-collector",
+          "depends_on": [],
+          "estimated_tokens": null
+        },
+        {
+          "id": "s2",
+          "name": "Model Design",
+          "de</pre>
+</div>
+<div class="panel">
+<h3>GET /dag/list</h3>
+<pre>{
+  "success": true,
+  "data": [
+    {
+      "project_path": "/projects/test-app",
+      "project_name": "test-app",
+      "dag_id": "dag_4c8ba75e",
+      "total_nodes": 8,
+      "raw_nodes": 5,
+      "summary_nodes": 3,
+      "total_tokens_preserved": 179,
+      "has_root": true,
+      "updated_at": "2026-05-01T20:49:51.410527"
+    }
+  ],
+  "error": null
+}</pre>
+</div>
+</body></html>

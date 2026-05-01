@@ -47,7 +47,7 @@ async def list_dags():
 
     for path in sorted(dag_dir.glob("*.json")):
         try:
-            from ..models.context_dag import ContextDAG
+            from hits_core.models.context_dag import ContextDAG
             dag = ContextDAG.model_validate_json(path.read_text(encoding="utf-8"))
             stats = dag.get_statistics()
             results.append({
@@ -72,9 +72,22 @@ async def get_dag(project_path: str):
     """Get the full DAG structure for a project.
 
     Returns nodes, edges, and statistics suitable for visualization.
+    Only returns existing DAGs — does not create new ones.
     """
     svc = _get_service()
-    dag = await svc.get_or_create_dag(project_path)
+    key = svc._project_key(project_path)
+    dag = await svc._load_dag(key)
+    if dag is None:
+        return APIResponse(success=True, data={
+            "dag_id": None,
+            "project_path": project_path,
+            "project_name": "",
+            "root_id": None,
+            "stats": {"total_nodes": 0, "raw_nodes": 0, "summary_nodes": 0, "total_tokens_preserved": 0, "levels": {}, "has_root": False, "project_path": project_path},
+            "nodes": [],
+            "edges": [],
+            "levels": {},
+        })
 
     stats = dag.get_statistics()
 
@@ -104,15 +117,15 @@ async def get_dag(project_path: str):
 
 @router.get("/project/{project_path:path}/stats")
 async def get_dag_stats(project_path: str):
-    """Get DAG statistics for a project."""
+    """Get DAG statistics for a project. Returns empty stats if no DAG exists."""
     svc = _get_service()
     stats = await svc.get_statistics(project_path)
     return APIResponse(success=True, data=stats)
 
 
-@router.get("/project/{project_path:path}/search")
+@router.get("/search")
 async def search_dag(
-    project_path: str,
+    project_path: str = QueryParam(...),
     q: str = QueryParam(default=""),
     limit: int = QueryParam(default=10, ge=1, le=50),
 ):
@@ -124,8 +137,11 @@ async def search_dag(
     return APIResponse(success=True, data=[n.model_dump() for n in results])
 
 
-@router.get("/project/{project_path:path}/lineage/{node_id}")
-async def get_lineage(project_path: str, node_id: str):
+@router.get("/lineage")
+async def get_lineage(
+    project_path: str = QueryParam(...),
+    node_id: str = QueryParam(...),
+):
     """Get full lineage of a node (ancestors + descendants) for audit."""
     svc = _get_service()
     lineage = await svc.get_lineage(project_path, node_id)

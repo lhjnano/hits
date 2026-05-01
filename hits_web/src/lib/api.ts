@@ -269,12 +269,14 @@ export const api = {
     stats: (projectPath: string) =>
       request(`/dag/project/${projectPath}/stats`),
     search: (projectPath: string, query: string, limit?: number) => {
-      const q = new URLSearchParams({ q: query });
+      const q = new URLSearchParams({ project_path: projectPath, q: query });
       if (limit) q.set('limit', String(limit));
-      return request(`/dag/project/${projectPath}/search?${q}`);
+      return request(`/dag/search?${q}`);
     },
-    lineage: (projectPath: string, nodeId: string) =>
-      request(`/dag/project/${projectPath}/lineage/${nodeId}`),
+    lineage: (projectPath: string, nodeId: string) => {
+      const q = new URLSearchParams({ project_path: projectPath, node_id: nodeId });
+      return request(`/dag/lineage?${q}`);
+    },
     context: (projectPath: string, tokenBudget?: number) =>
       request(`/dag/project/${projectPath}/context${tokenBudget ? '?token_budget=' + tokenBudget : ''}`),
   },
