@@ -5,5 +5,5 @@ Apache 2.0 License
 Pure Python implementation without GUI dependencies.
 """
 
-__version__ = "1.3.5"
+__version__ = "1.3.6"
 __license__ = "Apache-2.0"
