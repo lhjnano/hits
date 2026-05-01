@@ -3,7 +3,7 @@
 from enum import Enum
 from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class StepType(str, Enum):
@@ -15,6 +15,8 @@ class StepType(str, Enum):
 
 
 class WorkflowStep(BaseModel):
+    model_config = ConfigDict(use_enum_values=True)
+
     id: str = Field(..., description="Step unique identifier")
     name: str = Field(..., description="Step name")
     step_type: StepType = Field(default=StepType.ACTION, description="Step type")
@@ -25,9 +27,6 @@ class WorkflowStep(BaseModel):
     condition: Optional[str] = Field(default=None, description="Condition for branching")
     
     estimated_tokens: int = Field(default=0, description="Estimated tokens for this step")
-    
-    class Config:
-        use_enum_values = True
 
 
 class Workflow(BaseModel):
