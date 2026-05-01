@@ -215,7 +215,7 @@ export const api = {
   // Token Tracking
   tokens: {
     stats: (projectPath: string) =>
-      request(`/token/stats${projectPath}`),
+      request(`/token/stats/${projectPath}`),
     daily: (params?: { project_path?: string; days?: number }) => {
       const q = new URLSearchParams();
       if (params?.project_path) q.set('project_path', params.project_path);
@@ -226,12 +226,56 @@ export const api = {
     topProjects: (limit?: number) =>
       request(`/token/top-projects${limit ? '?limit=' + limit : ''}`),
     budget: (projectPath: string) =>
-      request(`/token/budget${projectPath}`),
+      request(`/token/budget/${projectPath}`),
     setBudget: (data: { project_path: string; monthly_token_limit: number; daily_token_limit?: number; alert_threshold_pct?: number }) =>
       request('/token/budget', { method: 'POST', body: JSON.stringify(data) }),
     alert: (projectPath: string) =>
-      request(`/token/alert${projectPath}`),
+      request(`/token/alert/${projectPath}`),
     record: (data: Record<string, unknown>) =>
       request('/token/record', { method: 'POST', body: JSON.stringify(data) }),
+  },
+
+  // Workflow Pipeline
+  workflow: {
+    list: (projectPath?: string, limit?: number) => {
+      const q = new URLSearchParams();
+      if (projectPath) q.set('project_path', projectPath);
+      if (limit) q.set('limit', String(limit));
+      const qs = q.toString();
+      return request(`/workflow/list${qs ? '?' + qs : ''}`);
+    },
+    get: (workflowId: string) =>
+      request(`/workflow/${workflowId}`),
+    create: (data: { project_path: string; name: string; stages: Array<Record<string, unknown>>; performer?: string; tags?: string[] }) =>
+      request('/workflow/create', { method: 'POST', body: JSON.stringify(data) }),
+    startStage: (workflowId: string, stageId: string, performer?: string) =>
+      request(`/workflow/${workflowId}/start/${stageId}`, { method: 'POST', body: JSON.stringify({ performer }) }),
+    completeStage: (workflowId: string, stageId: string, tokensUsed?: number) =>
+      request(`/workflow/${workflowId}/complete/${stageId}`, { method: 'POST', body: JSON.stringify({ tokens_used: tokensUsed || 0 }) }),
+    failStage: (workflowId: string, stageId: string, error: string) =>
+      request(`/workflow/${workflowId}/fail/${stageId}`, { method: 'POST', body: JSON.stringify({ error }) }),
+    resume: (workflowId: string) =>
+      request(`/workflow/${workflowId}/resume`),
+    context: (workflowId: string, maxTokens?: number) =>
+      request(`/workflow/${workflowId}/context${maxTokens ? '?max_tokens=' + maxTokens : ''}`),
+  },
+
+  // Context DAG
+  dag: {
+    list: () =>
+      request('/dag/list'),
+    get: (projectPath: string) =>
+      request(`/dag/project/${projectPath}`),
+    stats: (projectPath: string) =>
+      request(`/dag/project/${projectPath}/stats`),
+    search: (projectPath: string, query: string, limit?: number) => {
+      const q = new URLSearchParams({ q: query });
+      if (limit) q.set('limit', String(limit));
+      return request(`/dag/project/${projectPath}/search?${q}`);
+    },
+    lineage: (projectPath: string, nodeId: string) =>
+      request(`/dag/project/${projectPath}/lineage/${nodeId}`),
+    context: (projectPath: string, tokenBudget?: number) =>
+      request(`/dag/project/${projectPath}/context${tokenBudget ? '?token_budget=' + tokenBudget : ''}`),
   },
 };

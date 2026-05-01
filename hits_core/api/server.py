@@ -21,7 +21,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
 
-from .routes import health, work_log, node, handover, auth, knowledge, signal, checkpoint, task, ws, token
+from .routes import health, work_log, node, handover, auth, knowledge, signal, checkpoint, task, ws, token, workflow, dag
 from ..auth.middleware import SecurityMiddleware
 
 
@@ -112,6 +112,8 @@ class APIServer:
         app.include_router(checkpoint.router, prefix="/api", tags=["checkpoint"])
         app.include_router(task.router, prefix="/api", tags=["task"])
         app.include_router(token.router, prefix="/api", tags=["token"])
+        app.include_router(workflow.router, prefix="/api", tags=["workflow"])
+        app.include_router(dag.router, prefix="/api", tags=["dag"])
 
         # --- WebSocket (no /api prefix — routes already include /ws) ---
         app.include_router(ws.router, tags=["websocket"])
