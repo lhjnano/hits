@@ -32,6 +32,7 @@ class ChangeType(str, Enum):
 
 class NextStep(BaseModel):
     """A single actionable next step."""
+    model_config = ConfigDict(use_enum_values=True)
     action: str = Field(..., description="What to do (imperative verb)")
     command: Optional[str] = Field(default=None, description="Shell command to run (if applicable)")
     file: Optional[str] = Field(default=None, description="Primary file to edit")
@@ -42,6 +43,7 @@ class NextStep(BaseModel):
 
 class FileDelta(BaseModel):
     """A file change record."""
+    model_config = ConfigDict(use_enum_values=True)
     path: str = Field(..., description="File path relative to project root")
     change_type: ChangeType = Field(default=ChangeType.MODIFIED)
     description: Optional[str] = Field(default=None, description="What changed (1 line)")
