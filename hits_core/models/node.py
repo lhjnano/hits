@@ -3,7 +3,7 @@
 from enum import Enum
 from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class NodeLayer(str, Enum):
@@ -20,6 +20,8 @@ class NodeType(str, Enum):
 
 
 class Node(BaseModel):
+    model_config = ConfigDict(use_enum_values=True)
+    
     id: str = Field(..., description="Unique node identifier")
     layer: NodeLayer = Field(..., description="Tree layer (why/how/what)")
     title: str = Field(..., description="Node display title")
@@ -37,9 +39,6 @@ class Node(BaseModel):
     
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
-    
-    class Config:
-        use_enum_values = True
     
     def is_root(self) -> bool:
         return self.parent_id is None

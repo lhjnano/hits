@@ -34,7 +34,7 @@ class WorkLog(BaseModel):
     
     source: WorkLogSource = Field(..., description="Where this log came from")
     
-    request_text: Optional[str] = Field(default=None, description="Original request/prompt")
+    request_text: str = Field(..., min_length=1, description="Summary of work performed")
     request_by: Optional[str] = Field(default=None, description="Who made the request")
     
     performed_by: str = Field(..., description="Who/what performed the action")
