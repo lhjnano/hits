@@ -9,6 +9,8 @@
   import ResumePanel from './ResumePanel.svelte';
   import TasksPanel from './TasksPanel.svelte';
   import TokenDashboard from './TokenDashboard.svelte';
+  import WorkflowPanel from './WorkflowPanel.svelte';
+  import DAGBrowser from './DAGBrowser.svelte';
 
   let { onLogout } = $props<{ onLogout: () => void }>();
 
@@ -20,7 +22,7 @@
   let passwordError = $state('');
   let passwordSuccess = $state('');
   let refreshing = $state(false);
-  let activeTab: 'knowledge' | 'timeline' | 'resume' | 'tasks' | 'tokens' = $state('resume');
+  let activeTab: 'knowledge' | 'timeline' | 'resume' | 'tasks' | 'tokens' | 'workflow' | 'dag' = $state('resume');
   let sidebarOpen = $state(true);
   let wsConnected = $state(false);
   let liveEvent: string | null = $state(null);
@@ -133,7 +135,7 @@
     }
   }
 
-  function switchTab(tab: 'knowledge' | 'timeline' | 'resume' | 'tasks' | 'tokens') {
+  function switchTab(tab: 'knowledge' | 'timeline' | 'resume' | 'tasks' | 'tokens' | 'workflow' | 'dag') {
     activeTab = tab;
   }
 </script>
@@ -209,6 +211,12 @@
         </button>
         <button class="tab" class:active={activeTab === 'tokens'} onclick={() => switchTab('tokens')}>
           📊 Tokens
+        </button>
+        <button class="tab" class:active={activeTab === 'workflow'} onclick={() => switchTab('workflow')}>
+          🔄 Workflow
+        </button>
+        <button class="tab" class:active={activeTab === 'dag'} onclick={() => switchTab('dag')}>
+          🌳 DAG
         </button>
       </div>
 
@@ -298,6 +306,10 @@
         <Timeline />
       {:else if activeTab === 'tokens'}
         <TokenDashboard />
+      {:else if activeTab === 'workflow'}
+        <WorkflowPanel />
+      {:else if activeTab === 'dag'}
+        <DAGBrowser />
       {/if}
     </div>
   </div>

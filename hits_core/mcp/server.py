@@ -471,6 +471,10 @@ class HITSMCPServer:
         self.checkpoint_service = CheckpointService(storage=self.storage)
         self.checkpoint_compressor = CheckpointCompressor()
 
+        # Token tracking — auto-records usage on every tool call
+        from ..service.token_tracker import TokenTrackerService
+        self.token_tracker = TokenTrackerService(data_dir=Path(data_path) if data_path else None)
+
     async def handle_initialize(self, params: dict, id_val: Any) -> str:
         result = {
             "protocolVersion": "2024-11-05",
@@ -499,6 +503,10 @@ class HITSMCPServer:
                 prefix = "\n".join(lines) + "\n\n"
         except Exception:
             pass
+
+        import time
+        start = time.time()
+        tool_project = arguments.get("project_path") or _detect_project_path()
 
         try:
             if tool_name == "hits_record_work":
@@ -532,6 +540,28 @@ class HITSMCPServer:
             # Prepend signal notification if any
             if prefix and result:
                 result[0]["text"] = prefix + result[0]["text"]
+
+            # ── Auto token tracking ──
+            elapsed = time.time() - start
+            try:
+                output_text = result[0].get("text", "") if result else ""
+                tokens_out_est = max(len(output_text) // 3, 1)
+                # Estimate input tokens from argument sizes
+                args_text = json.dumps(arguments)
+                tokens_in_est = max(len(args_text) // 3, 1)
+                performer = arguments.get("performed_by", "unknown")
+
+                self.token_tracker.record(
+                    project_path=str(Path(tool_project).resolve()),
+                    performer=performer,
+                    tokens_in=tokens_in_est,
+                    tokens_out=tokens_out_est,
+                    model="mcp-server",
+                    operation=tool_name,
+                    tags=["auto-tracked"],
+                )
+            except Exception:
+                pass  # Never let tracking break the tool call
 
             return _json_rpc_response(
                 id_val,
