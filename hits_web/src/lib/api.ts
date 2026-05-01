@@ -211,4 +211,27 @@ export const api = {
     importFromSlack: (channel: string, limit?: number) =>
       request('/tasks/slack/import', { method: 'POST', body: JSON.stringify({ channel, limit: limit || 10 }) }),
   },
+
+  // Token Tracking
+  tokens: {
+    stats: (projectPath: string) =>
+      request(`/token/stats${projectPath}`),
+    daily: (params?: { project_path?: string; days?: number }) => {
+      const q = new URLSearchParams();
+      if (params?.project_path) q.set('project_path', params.project_path);
+      if (params?.days) q.set('days', String(params.days));
+      const qs = q.toString();
+      return request(`/token/daily${qs ? '?' + qs : ''}`);
+    },
+    topProjects: (limit?: number) =>
+      request(`/token/top-projects${limit ? '?limit=' + limit : ''}`),
+    budget: (projectPath: string) =>
+      request(`/token/budget${projectPath}`),
+    setBudget: (data: { project_path: string; monthly_token_limit: number; daily_token_limit?: number; alert_threshold_pct?: number }) =>
+      request('/token/budget', { method: 'POST', body: JSON.stringify(data) }),
+    alert: (projectPath: string) =>
+      request(`/token/alert${projectPath}`),
+    record: (data: Record<string, unknown>) =>
+      request('/token/record', { method: 'POST', body: JSON.stringify(data) }),
+  },
 };

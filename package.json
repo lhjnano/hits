@@ -1,6 +1,6 @@
 {
   "name": "@purpleraven/hits",
-  "version": "1.3.2",
+  "version": "1.3.3",
   "description": "Your AI session died. Your work didn't. The checkpoint system for AI coding sessions — token limits, session swaps, tool switches, pick up where you left off.",
   "keywords": [
     "ai",

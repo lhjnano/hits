@@ -3,10 +3,12 @@
   import { api } from '../lib/api';
   import { t, setLocale, getLocale, altLang, altLangLabel, subscribeLocale, type Locale } from '../lib/i18n';
   import { authStore, projectsStore, uiStore } from '../lib/stores';
+  import { wsClient } from '../lib/ws';
   import KnowledgeTree from './KnowledgeTree.svelte';
   import Timeline from './Timeline.svelte';
   import ResumePanel from './ResumePanel.svelte';
   import TasksPanel from './TasksPanel.svelte';
+  import TokenDashboard from './TokenDashboard.svelte';
 
   let { onLogout } = $props<{ onLogout: () => void }>();
 
@@ -18,8 +20,10 @@
   let passwordError = $state('');
   let passwordSuccess = $state('');
   let refreshing = $state(false);
-  let activeTab: 'knowledge' | 'timeline' | 'resume' | 'tasks' = $state('resume');
+  let activeTab: 'knowledge' | 'timeline' | 'resume' | 'tasks' | 'tokens' = $state('resume');
   let sidebarOpen = $state(true);
+  let wsConnected = $state(false);
+  let liveEvent: string | null = $state(null);
   let langLabel = $state(altLangLabel());
   let projects: any[] = $state([]);
   let selectedProject = $state('');
@@ -34,8 +38,23 @@
     });
     loadProjects();
     document.addEventListener('click', handleOutsideClick);
+
+    // WebSocket real-time updates
+    wsClient.connect();
+    const wsUnsub = wsClient.on('*', (ev) => {
+      if (ev.type === '_connected') wsConnected = true;
+      if (ev.type === '_disconnected') wsConnected = false;
+      if (ev.type === 'work_log_created' || ev.type === 'checkpoint_created') {
+        liveEvent = `⚡ ${ev.type.replace(/_/g, ' ')} — ${(ev.data as any).project_path?.split('/').pop() || ''}`;
+        setTimeout(() => { liveEvent = null; }, 3000);
+        loadProjects(); // auto-refresh sidebar
+      }
+    });
+
     return () => {
       unsub();
+      wsUnsub();
+      wsClient.disconnect();
       document.removeEventListener('click', handleOutsideClick);
     };
   });
@@ -114,7 +133,7 @@
     }
   }
 
-  function switchTab(tab: 'knowledge' | 'timeline' | 'resume' | 'tasks') {
+  function switchTab(tab: 'knowledge' | 'timeline' | 'resume' | 'tasks' | 'tokens') {
     activeTab = tab;
   }
 </script>
@@ -166,6 +185,15 @@
 
       <h1>HITS</h1>
 
+      <!-- Live indicator -->
+      {#if liveEvent}
+        <span class="live-badge">⚡</span>
+      {:else if wsConnected}
+        <span class="ws-dot connected" title="WebSocket connected">●</span>
+      {:else}
+        <span class="ws-dot disconnected" title="WebSocket disconnected">○</span>
+      {/if}
+
       <div class="tabs" style="margin-left:12px;">
           <button class="tab" class:active={activeTab === 'resume'} onclick={() => switchTab('resume')}>
           ▶ {t('resume.title')}
@@ -178,6 +206,9 @@
         </button>
         <button class="tab" class:active={activeTab === 'timeline'} onclick={() => switchTab('timeline')}>
           📝 {t('header.timeline')}
+        </button>
+        <button class="tab" class:active={activeTab === 'tokens'} onclick={() => switchTab('tokens')}>
+          📊 Tokens
         </button>
       </div>
 
@@ -210,6 +241,12 @@
 {/if}
 
 <style>
+  .ws-dot { font-size: 10px; margin-right: 4px; }
+  .ws-dot.connected { color: var(--success); }
+  .ws-dot.disconnected { color: var(--text-muted); }
+  .live-badge { animation: pulse 1s ease infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
   .sponsor-links {
     position: fixed;
     bottom: 12px;
@@ -259,6 +296,8 @@
         <KnowledgeTree />
       {:else if activeTab === 'timeline'}
         <Timeline />
+      {:else if activeTab === 'tokens'}
+        <TokenDashboard />
       {/if}
     </div>
   </div>
