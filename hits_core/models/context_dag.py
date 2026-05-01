@@ -297,6 +297,8 @@ class ContextDAG(BaseModel):
     def search(self, query: str, limit: int = 10) -> list[ContextNode]:
         """Search nodes by keyword in title, content, or tags."""
         query_lower = query.lower()
+        if not query_lower:
+            return []
         results = []
 
         for node in self.nodes.values():
