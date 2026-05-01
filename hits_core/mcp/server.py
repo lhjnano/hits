@@ -549,7 +549,14 @@ class HITSMCPServer:
                 # Estimate input tokens from argument sizes
                 args_text = json.dumps(arguments)
                 tokens_in_est = max(len(args_text) // 3, 1)
-                performer = arguments.get("performed_by", "unknown")
+                # Different tools use different arg names: performed_by, performer, sender
+                performer = (
+                    arguments.get("performed_by")
+                    or arguments.get("performer")
+                    or arguments.get("sender")
+                    or arguments.get("consumed_by")
+                    or "unknown"
+                )
 
                 self.token_tracker.record(
                     project_path=str(Path(tool_project).resolve()),
